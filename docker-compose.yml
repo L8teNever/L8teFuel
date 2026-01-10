@@ -1,11 +1,12 @@
 services:
   web:
-    build: .
+    # Ersetze 'DEIN_DOCKER_USER' mit deinem tatsächlichen Docker Hub Namen
+    image: l8tenever/l8tefuel:latest
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./data:/app/data
     environment:
-      - DATABASE_URL=sqlite:///./l8tefuel.db
+      - DATABASE_URL=sqlite:///./app/data/l8tefuel.db
       - SECRET_KEY=supersecretkeychangeit
     restart: always
