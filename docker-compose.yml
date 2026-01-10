@@ -10,4 +10,5 @@ services:
     environment:
       - DATABASE_URL=sqlite:////app/data/l8tefuel.db
       - SECRET_KEY=supersecretkeychangeit
+      - TANKERKOENIG_API_KEY=00000000-0000-0000-0000-000000000002 # Public Example Key
     restart: always

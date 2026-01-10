@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
+import requests
 
 from . import models, auth, database
 from .database import engine, get_db
@@ -131,19 +132,66 @@ async def check_prices(current_user: models.User = Depends(auth.get_current_user
     if not current_user.settings.is_active or not current_user.settings.latitude:
         return {"status": "inactive", "matches": []}
     
-    # MOCK API RESPONSE
-    # In reality, you would call Tankerkönig or similar here
-    # Example: response = requests.get(f"https://some-api.com/prices?lat={lat}&lng={lng}&rad={rad}")
-    
-    mock_stations = [
-        {"name": "Shell Market St", "price": 1.65, "distance": 1.2, "lat": current_user.settings.latitude + 0.01, "lng": current_user.settings.longitude + 0.01},
-        {"name": "Aral Highway", "price": 1.58, "distance": 3.4, "lat": current_user.settings.latitude + 0.03, "lng": current_user.settings.longitude + 0.02},
-        {"name": "Jet Budget", "price": 1.52, "distance": 4.8, "lat": current_user.settings.latitude - 0.02, "lng": current_user.settings.longitude + 0.04},
-    ]
-    
-    matches = [s for s in mock_stations if s["price"] <= (current_user.settings.target_price or 999) and s["distance"] <= current_user.settings.radius]
-    
-    return {"status": "active", "matches": matches}
+    api_key = os.getenv("TANKERKOENIG_API_KEY")
+    # Simple Mock fallback / Warning if no key
+    if not api_key or api_key.startswith("0000"):
+        # Keep the mock for testing if no valid key is provided
+        mock_stations = [
+            {"name": "MOCK (No API Key) - Shell", "price": 1.65, "distance": 1.2, "lat": current_user.settings.latitude + 0.01, "lng": current_user.settings.longitude + 0.01},
+            {"name": "MOCK (No API Key) - Aral", "price": 1.58, "distance": 3.4, "lat": current_user.settings.latitude + 0.03, "lng": current_user.settings.longitude + 0.02},
+        ]
+        matches = [s for s in mock_stations if s["price"] <= (current_user.settings.target_price or 999) and s["distance"] <= current_user.settings.radius]
+        return {"status": "active", "matches": matches}
+
+    try:
+        url = "https://creativecommons.tankerkoenig.de/json/list.php"
+        params = {
+            "lat": current_user.settings.latitude,
+            "lng": current_user.settings.longitude,
+            "rad": current_user.settings.radius,
+            "sort": "dist",
+            "type": "all",
+            "apikey": api_key
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if not data.get("ok"):
+            print(f"API Error: {data}")
+            return {"status": "api_error", "matches": []}
+
+        stations = data.get("stations", [])
+        matches = []
+        target_price = current_user.settings.target_price or 999.0
+        
+        for s in stations:
+            if not s.get("isOpen", True):
+                continue
+
+            # Default priority: E10 -> E5 -> Diesel
+            price = s.get("e10")
+            if not price: price = s.get("e5")
+            if not price: price = s.get("diesel")
+            
+            # Skip if no price found (e.g. station doesn't sell standard fuels)
+            if not price:
+                 continue
+
+            if price <= target_price:
+                matches.append({
+                    "name": f"{s.get('brand')} - {s.get('street')} {s.get('houseNumber', '')}", 
+                    "price": price, 
+                    "distance": s.get("dist"), 
+                    "lat": s.get("lat"), 
+                    "lng": s.get("lng")
+                })
+        
+        return {"status": "active", "matches": matches}
+
+    except Exception as e:
+        print(f"Error fetching prices: {e}")
+        return {"status": "error", "matches": []}
 
 # Static Files
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
