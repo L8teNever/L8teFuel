@@ -7,6 +7,6 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - DATABASE_URL=sqlite:///./app/data/l8tefuel.db
+      - DATABASE_URL=sqlite:////app/data/l8tefuel.db
       - SECRET_KEY=supersecretkeychangeit
     restart: always
