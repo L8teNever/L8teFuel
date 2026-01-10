@@ -1,6 +1,7 @@
 services:
   web:
     # Ersetze 'DEIN_DOCKER_USER' mit deinem tatsächlichen Docker Hub Namen
+    build: .
     image: l8tenever/l8tefuel:latest
     ports:
       - "8000:8000"
