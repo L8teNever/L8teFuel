@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L8teFuel - Intelligenter Tank-Warner</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="shortcut icon" href="icons/icon-192.png" type="image/png">
+    <meta name="theme-color" content="#3b82f6">
+</head>
+<body>
+    <div class="container">
+        <h1>L8teFuel</h1>
+
+        <!-- LOGIN VIEW -->
+        <div id="login-view" class="glass-card animate-fade-in">
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Login</h2>
+            <div class="input-group">
+                <label for="username">Benutzername</label>
+                <input type="text" id="username" placeholder="Dein Name">
+            </div>
+            <div class="input-group">
+                <label for="password">Passwort</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button id="login-btn">Anmelden</button>
+            <p id="login-error" class="danger" style="text-align: center; margin-top: 1rem; font-size: 0.875rem; color: var(--danger);"></p>
+        </div>
+
+        <!-- MAIN DASHBOARD VIEW -->
+        <div id="dashboard-view" class="hidden animate-fade-in">
+            <div class="nav-tabs">
+                <div class="nav-tab active" data-tab="track">Tracker</div>
+                <div class="nav-tab" data-tab="settings">Einstellungen</div>
+                <div id="admin-tab" class="nav-tab hidden" data-tab="admin">Admin</div>
+            </div>
+
+            <!-- Tracker Tab -->
+            <div id="tab-track" class="tab-content glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3>Status</h3>
+                    <span id="tracker-status" class="status-badge status-inactive">Inaktiv</span>
+                </div>
+                
+                <div id="active-info">
+                    <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                        Wenn aktiviert, wird dein Standort im Hintergrund getrackt. Du wirst benachrichtigt, sobald eine Tankstelle in deinem Radius den Zielpreis erreicht.
+                    </p>
+                    <button id="toggle-tracker" class="secondary" style="margin-bottom: 1.5rem;">Tracker einschalten</button>
+                </div>
+
+                <div id="price-results" class="hidden">
+                    <h4>Treffer in der Nähe:</h4>
+                    <div id="matches-list">
+                        <!-- Matches will appearing here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="tab-settings" class="tab-content glass-card hidden">
+                <h3 style="margin-bottom: 1.5rem;">Einstellungen</h3>
+                <div class="input-group">
+                    <label>Überwachungsradius (km)</label>
+                    <input type="number" id="set-radius" step="0.5" value="5">
+                </div>
+                <div class="input-group">
+                    <label>Maximaler Preis (€)</label>
+                    <input type="number" id="set-price" step="0.01" placeholder="z.B. 1.60">
+                </div>
+                <button id="save-settings" style="margin-bottom: 2rem;">Speichern</button>
+
+                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin-bottom: 2rem;">
+                
+                <h3 style="margin-bottom: 1.5rem;">Passwort ändern</h3>
+                <div class="input-group">
+                    <label>Neues Passwort</label>
+                    <input type="password" id="new-password" placeholder="••••••••">
+                </div>
+                <button id="change-pw-btn" class="secondary">Passwort aktualisieren</button>
+                
+                <button id="logout-btn" style="background: var(--danger); margin-top: 2rem;">Abmelden</button>
+            </div>
+
+            <!-- Admin Tab -->
+            <div id="tab-admin" class="tab-content glass-card hidden">
+                <h3 style="margin-bottom: 1.5rem;">Benutzerverwaltung</h3>
+                <div id="create-user-section" style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <h4>Neuen Nutzer anlegen</h4>
+                    <div class="input-group" style="margin-top: 1rem;">
+                        <input type="text" id="admin-new-user" placeholder="Benutzername">
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="admin-new-pw" placeholder="Initiales Passwort">
+                    </div>
+                    <button id="admin-create-btn">Nutzer erstellen</button>
+                </div>
+
+                <h4>Bestehende Nutzer</h4>
+                <div id="users-list" style="margin-top: 1rem;">
+                    <!-- User items will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
