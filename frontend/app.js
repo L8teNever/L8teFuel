@@ -166,16 +166,38 @@ window.closeStationDetails = () => {
 
 function initHomeMap() {
     if (mapHome) return;
-    // Default coords Berlin if no user location yet
-    mapHome = L.map('map-home', { zoomControl: false, zoomSnap: 0.1 }).setView([52.5200, 13.4050], 16);
+
+    // Default coords: Berlin if no user location yet
+    let startLat = 52.5200;
+    let startLng = 13.4050;
+
+    // Use saved user settings if available
+    let hasSavedLoc = false;
+    if (user && user.settings && user.settings.latitude && user.settings.longitude) {
+        startLat = user.settings.latitude;
+        startLng = user.settings.longitude;
+        hasSavedLoc = true;
+    }
+
+    mapHome = L.map('map-home', { zoomControl: false, zoomSnap: 0.1 }).setView([startLat, startLng], 16);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(mapHome);
 
     mapHome.on('dragstart', () => showRecenterBtn(true));
 
+    // If we have a saved location, show the marker immediately
+    if (hasSavedLoc) {
+        const arrowIcon = L.divIcon({
+            className: 'user-marker-icon',
+            html: `<div class="user-marker-container" id="userMarkerContainer" style="transform: rotate(0deg)"><i class="fas fa-location-arrow user-arrow"></i></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+        userMarker = L.marker([startLat, startLng], { icon: arrowIcon }).addTo(mapHome);
+    }
+
     updateRadiusVisual();
-    // Markers will be updated when data comes in
 }
 
 function showRecenterBtn(show) {
