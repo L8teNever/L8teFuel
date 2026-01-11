@@ -81,6 +81,29 @@ async function initApp() {
                 window.toggleTracking(true, true);
             }
         }
+
+        // Check debug settings and show warnings
+        try {
+            const debugRes = await fetch('/debug/settings', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const debugData = await debugRes.json();
+
+            console.log('🔧 Debug Info:', debugData);
+
+            // Show warning if using test API key
+            if (debugData.api_config?.is_test_key) {
+                console.warn('⚠️ Using TEST API KEY - Only mock data will be returned!');
+                console.warn('   Get a real API key from: https://creativecommons.tankerkoenig.de');
+            }
+
+            // Show warning if no location set
+            if (!debugData.settings?.latitude || !debugData.settings?.longitude) {
+                console.warn('⚠️ No location data set - Start tracking to set your location!');
+            }
+        } catch (debugErr) {
+            console.error('Debug info fetch failed:', debugErr);
+        }
     } catch (err) {
         console.error(err);
         localStorage.removeItem('token');
@@ -281,8 +304,22 @@ async function checkPrices() {
         });
         const data = await res.json();
 
+        console.log('💰 Price Check Response:', data);
+
         if (data.status === 'active' || data.status === 'api_error') {
             stations = data.matches || []; // Update global stations
+
+            console.log(`📍 Found ${stations.length} matching stations`);
+            if (data.total_stations) {
+                console.log(`   Total stations in area: ${data.total_stations}`);
+            }
+            if (data.debug) {
+                console.warn(`   ${data.debug}`);
+            }
+            if (data.error) {
+                console.error(`   API Error: ${data.error}`);
+            }
+
             updateStationMarkers();
             loadExploreList();
 
@@ -290,6 +327,8 @@ async function checkPrices() {
             if (stations.length > 0 && Notification.permission === 'granted') {
                 // Logic to prevent spamming notifications can be added here
             }
+        } else if (data.status === 'inactive') {
+            console.log('⏸️  Tracking is inactive or no location data available');
         }
     } catch (err) {
         console.error('Error checking prices:', err);
