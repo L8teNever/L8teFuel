@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>L8teFuel - Mobile Fuel Tracker</title>
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,8 +30,20 @@
 
         .nav-active {
             color: #facc15;
-            transform: translateY(-5px);
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: rgba(250, 204, 21, 0.1);
+        }
+
+        @media (max-width: 767px) {
+            .nav-active {
+                transform: translateY(-5px);
+            }
+        }
+
+        @media (min-width: 768px) {
+            .nav-active {
+                transform: translateX(5px);
+                box-shadow: 0 0 15px rgba(250, 204, 21, 0.2);
+            }
         }
 
         .yellow-glow {
@@ -42,7 +54,6 @@
             accent-color: #facc15;
         }
 
-        /* Fullscreen Map Styles */
         #map-home {
             position: fixed;
             top: 0;
@@ -73,17 +84,17 @@
             }
         }
 
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        /* Floating UI Elements */
         .floating-top {
             position: fixed;
             top: 1.5rem;
             left: 1.5rem;
             right: 1.5rem;
             z-index: 50;
+            pointer-events: none;
+        }
+
+        .floating-top>* {
+            pointer-events: auto;
         }
 
         .pulse-active {
@@ -104,7 +115,6 @@
             }
         }
 
-        /* User Marker / Direction Arrow */
         .user-marker-container {
             display: flex;
             align-items: center;
@@ -118,7 +128,6 @@
             filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.8));
         }
 
-        /* Custom Marker Style for Map Prices */
         .price-marker {
             background: #1e293b;
             border: 2px solid #facc15;
@@ -158,28 +167,41 @@
             border-top-color: #fff;
         }
 
-        /* Bottom Sheet Styling */
         #bottomSheet {
-            transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+            transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.4s ease;
             z-index: 1000;
         }
 
         .sheet-hidden {
             transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @media (min-width: 768px) {
+            .sheet-hidden {
+                transform: translateY(20px);
+            }
         }
 
         .sheet-visible {
             transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
         }
 
-        /* Fuel Type Buttons */
         .fuel-btn-active {
             background-color: #facc15 !important;
             color: #0f172a !important;
             border-color: #facc15 !important;
         }
 
-        /* Transition for Filters */
+        .explore-fuel-active {
+            background-color: #facc15 !important;
+            color: #0f172a !important;
+            border-color: #facc15 !important;
+        }
+
         #filterSection {
             max-height: 0;
             overflow: hidden;
@@ -198,18 +220,24 @@
     <!-- LOGIN SCREEN -->
     <section id="view-login"
         class="fixed inset-0 z-[1100] bg-[#0f172a] flex items-center justify-center p-6 text-center">
-        <div class="w-full max-w-sm glass p-8 rounded-[2.5rem] shadow-2xl">
-            <h1 class="text-5xl font-black text-yellow-400 italic tracking-tighter mb-2">L8teFuel</h1>
-            <p class="text-gray-400 mb-8 font-bold text-xs uppercase tracking-widest text-slate-500">Premium Fuel
-                Monitoring</p>
-            <div class="space-y-4">
-                <input type="text" id="username" placeholder="Benutzername"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none focus:border-yellow-400 transition text-white">
-                <input type="password" id="password" placeholder="Passwort"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none focus:border-yellow-400 transition text-white">
-                <button id="login-btn"
-                    class="w-full bg-yellow-400 text-slate-900 font-black py-4 rounded-2xl yellow-glow transition hover:bg-yellow-300 active:scale-95">LOGIN</button>
-                <div id="login-error" class="text-red-500 text-sm mt-2 font-bold"></div>
+        <div class="w-full max-w-sm glass p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-20 -left-20 w-40 h-40 bg-yellow-400 rounded-full blur-[80px] opacity-20"></div>
+            <div class="absolute -bottom-20 -right-20 w-40 h-40 bg-purple-500 rounded-full blur-[80px] opacity-20">
+            </div>
+
+            <div class="relative z-10">
+                <h1 class="text-5xl font-black text-yellow-400 italic tracking-tighter mb-2">L8teFuel</h1>
+                <p class="text-gray-400 mb-8 font-bold text-xs uppercase tracking-widest text-slate-500">Premium Fuel
+                    Monitoring</p>
+                <div class="space-y-4">
+                    <input type="text" id="username" placeholder="Benutzername"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none focus:border-yellow-400 transition text-white">
+                    <input type="password" id="password" placeholder="Passwort"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none focus:border-yellow-400 transition text-white">
+                    <button id="login-btn"
+                        class="w-full bg-yellow-400 text-slate-900 font-black py-4 rounded-2xl yellow-glow transition hover:bg-yellow-300 active:scale-95">LOGIN</button>
+                    <div id="login-error" class="text-red-500 text-sm mt-2 font-bold"></div>
+                </div>
             </div>
         </div>
     </section>
@@ -219,10 +247,11 @@
 
         <!-- INACTIVE STATE -->
         <div id="inactive-ui"
-            class="absolute inset-0 z-[60] flex flex-col items-center justify-center p-8 text-center bg-[#0f172a]">
-            <div class="mb-12">
+            class="absolute inset-0 z-[60] flex flex-col items-center justify-center p-8 text-center bg-[#0f172a]/90 backdrop-blur-sm">
+            <div class="mb-12 relative">
+                <div class="absolute inset-0 bg-yellow-400 blur-[60px] opacity-10 rounded-full"></div>
                 <div
-                    class="w-20 h-20 rounded-2xl bg-slate-800 flex items-center justify-center mb-6 mx-auto border border-slate-700 rotate-3">
+                    class="w-20 h-20 rounded-2xl bg-slate-800/80 flex items-center justify-center mb-6 mx-auto border border-slate-700 rotate-3 z-10 relative shadow-2xl">
                     <i class="fas fa-satellite-dish text-3xl text-yellow-400"></i>
                 </div>
                 <h1 class="text-4xl font-black text-white italic mb-2 tracking-tighter">L8teFuel</h1>
@@ -246,164 +275,180 @@
         <!-- ACTIVE STATE -->
         <div id="active-ui" class="hidden">
             <div class="floating-top">
-                <div class="flex justify-between items-start px-2">
-                    <div>
-                        <h1 class="text-2xl font-black text-yellow-400 italic drop-shadow-lg">L8teFuel</h1>
-                        <div class="flex items-center mt-1">
-                            <div id="statusDot"
-                                class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] pulse-active mr-2">
+                <div class="max-w-7xl mx-auto flex justify-between items-start">
+                    <div class="glass px-4 py-2 rounded-2xl border border-white/10 flex items-center space-x-4">
+                        <div>
+                            <h1 class="text-lg md:text-2xl font-black text-yellow-400 italic drop-shadow-lg">L8teFuel
+                            </h1>
+                            <div class="flex items-center">
+                                <div id="statusDot"
+                                    class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] pulse-active mr-2">
+                                </div>
+                                <span class="text-[9px] text-green-400 font-black uppercase tracking-widest"
+                                    id="activeFuelDisplay">Diesel Monitoring</span>
                             </div>
-                            <span class="text-[9px] text-green-400 font-black uppercase tracking-widest"
-                                id="activeFuelDisplay">Diesel Monitoring</span>
                         </div>
                     </div>
 
                     <button onclick="window.toggleTracking(false)"
-                        class="bg-slate-900/80 backdrop-blur-md text-red-500 w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border border-white/10 active:scale-90 transition transform">
+                        class="bg-slate-900/80 backdrop-blur-md text-red-500 w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border border-white/10 hover:bg-red-500 hover:text-white transition transform active:scale-90">
                         <i class="fas fa-power-off text-xl"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- Zentrieren Button -->
             <button onclick="window.recenterMap()" id="recenterBtn"
-                class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[50] glass w-12 h-12 rounded-full flex items-center justify-center text-yellow-400 shadow-2xl active:scale-90 transition-all opacity-0 pointer-events-none scale-75">
+                class="fixed bottom-28 md:bottom-12 left-1/2 -translate-x-1/2 z-[50] glass w-12 h-12 rounded-full flex items-center justify-center text-yellow-400 shadow-2xl active:scale-90 hover:bg-yellow-400 hover:text-black transition-all opacity-0 pointer-events-none scale-75">
                 <i class="fas fa-crosshairs text-xl"></i>
             </button>
 
-            <!-- Fullscreen Map -->
             <div id="map-home"></div>
         </div>
     </main>
 
     <!-- VIEW: EXPLORE -->
-    <section id="view-explore" class="view-section p-6 pb-32 min-h-screen bg-[#0f172a]">
-        <h2 class="text-3xl font-black mb-6 italic uppercase tracking-tighter text-yellow-400">Tankstellen</h2>
+    <section id="view-explore" class="view-section p-6 pb-32 md:pt-12 min-h-screen bg-[#0f172a]">
+        <div class="max-w-6xl mx-auto">
+            <h2 class="text-3xl font-black mb-6 italic uppercase tracking-tighter text-yellow-400">Tankstellen</h2>
 
-        <!-- Search & Filter Controls -->
-        <div class="mb-8">
-            <div class="flex space-x-3">
-                <div class="glass flex-1 p-2 rounded-2xl flex items-center border border-white/10">
-                    <i class="fas fa-search ml-3 text-gray-500"></i>
-                    <input type="text" id="searchInput" placeholder="Station suchen..."
-                        class="flex-1 bg-transparent border-none p-3 text-sm outline-none text-white">
+            <div class="mb-8 max-w-2xl">
+                <div class="flex space-x-3">
+                    <div
+                        class="glass flex-1 p-2 rounded-2xl flex items-center border border-white/10 focus-within:border-yellow-400/50 transition">
+                        <i class="fas fa-search ml-3 text-gray-500"></i>
+                        <input type="text" id="searchInput" placeholder="Station suchen..."
+                            oninput="window.loadExploreList()"
+                            class="flex-1 bg-transparent border-none p-3 text-sm outline-none text-white placeholder-gray-600">
+                    </div>
+                    <button onclick="window.toggleFilters()"
+                        class="glass w-14 rounded-2xl flex items-center justify-center text-yellow-400 border border-white/10 hover:bg-white/5 transition">
+                        <i class="fas fa-filter"></i>
+                    </button>
                 </div>
-                <button onclick="window.toggleFilters()"
-                    class="glass w-14 rounded-2xl flex items-center justify-center text-yellow-400 border border-white/10">
-                    <i class="fas fa-filter"></i>
-                </button>
-            </div>
 
-            <!-- Filter Section (Hidden by default) -->
-            <div id="filterSection" class="glass rounded-3xl p-5 border border-white/10">
-                <div class="space-y-6">
-                    <div>
-                        <div
-                            class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
-                            <span>Max. Preis</span>
-                            <span id="filterPriceVal" class="text-yellow-400">2.50 €</span>
-                        </div>
-                        <input type="range" id="filterPrice" min="1.00" max="2.50" step="0.01" value="2.50"
-                            class="w-full">
-                    </div>
-                    <div>
-                        <div
-                            class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
-                            <span>Entfernung</span>
-                            <span id="filterDistVal" class="text-yellow-400">15 km</span>
-                        </div>
-                        <input type="range" id="filterDist" min="0.5" max="15" step="0.5" value="15" class="w-full">
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Nur
-                            geöffnete</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="filterOpen" class="sr-only peer">
+                <div id="filterSection" class="glass rounded-3xl p-5 border border-white/10 mt-2">
+                    <div class="space-y-6">
+                        <div>
                             <div
-                                class="w-10 h-5 bg-slate-700 rounded-full peer peer-checked:bg-yellow-400 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5">
+                                class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
+                                <span>Max. Preis</span>
+                                <span id="filterPriceVal" class="text-yellow-400">2.50 €</span>
                             </div>
-                        </label>
+                            <input type="range" id="filterPrice" min="1.00" max="2.50" step="0.01" value="2.50"
+                                oninput="window.loadExploreList()" class="w-full">
+                        </div>
+                        <div>
+                            <div
+                                class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
+                                <span>Entfernung</span>
+                                <span id="filterDistVal" class="text-yellow-400">15 km</span>
+                            </div>
+                            <input type="range" id="filterDist" min="0.5" max="15" step="0.5" value="15"
+                                oninput="window.loadExploreList()" class="w-full">
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Nur
+                                geöffnete</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="filterOpen" onchange="window.loadExploreList()"
+                                    class="sr-only peer">
+                                <div
+                                    class="w-10 h-5 bg-slate-700 rounded-full peer peer-checked:bg-yellow-400 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5">
+                                </div>
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div id="exploreList" class="space-y-3"></div>
+            <div id="exploreList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
     </section>
 
     <!-- VIEW: SETUP -->
-    <section id="view-settings" class="view-section p-6 pb-32 min-h-screen bg-[#0f172a]">
-        <h2 class="text-3xl font-black mb-6 italic uppercase tracking-tighter text-yellow-400">Setup</h2>
-        <div class="space-y-6">
+    <section id="view-settings" class="view-section p-6 pb-32 md:pt-12 min-h-screen bg-[#0f172a]">
+        <div class="max-w-xl mx-auto">
+            <h2 class="text-3xl font-black mb-6 italic uppercase tracking-tighter text-yellow-400">Setup</h2>
+            <div class="space-y-6">
 
-            <div class="glass p-6 rounded-[2.5rem]">
-                <h3 class="text-xs font-black text-yellow-400 uppercase tracking-widest mb-6 flex items-center">
-                    <i class="fas fa-filter mr-2"></i> Kraftstoff-Typ
-                </h3>
-                <div class="grid grid-cols-3 gap-3">
-                    <button id="fuel-diesel"
-                        class="fuel-btn bg-slate-800 border border-slate-700 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider text-slate-400 fuel-btn-active transition">Diesel</button>
-                    <button id="fuel-e5"
-                        class="fuel-btn bg-slate-800 border border-slate-700 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider text-slate-400 transition">Super
-                        E5</button>
-                    <button id="fuel-e10"
-                        class="fuel-btn bg-slate-800 border border-slate-700 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider text-slate-400 transition">Super
-                        E10</button>
-                </div>
-            </div>
-
-            <div class="glass p-6 rounded-[2.5rem]">
-                <h3 class="text-xs font-black text-yellow-400 uppercase tracking-widest mb-6 flex items-center">
-                    <i class="fas fa-sliders mr-2"></i> Überwachung
-                </h3>
-                <div class="space-y-8">
-                    <div>
-                        <div class="flex justify-between text-xs font-bold mb-3 text-gray-500"><span>RADIUS</span><span
-                                class="text-yellow-400" id="radiusVal">2 km</span></div>
-                        <input type="range" id="radiusInput" min="0.5" max="15" step="0.5" value="2" class="w-full">
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs font-bold mb-3 text-gray-500">
-                            <span>PREISLIMIT</span><span class="text-yellow-400" id="priceVal">1.55 €</span></div>
-                        <input type="range" id="priceInput" min="1.00" max="2.50" step="0.01" value="1.55"
-                            class="w-full">
+                <div class="glass p-6 rounded-[2.5rem] hover:border-white/20 transition duration-300">
+                    <h3 class="text-xs font-black text-yellow-400 uppercase tracking-widest mb-6 flex items-center">
+                        <i class="fas fa-filter mr-2"></i> Kraftstoff-Typ
+                    </h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <button id="fuel-diesel"
+                            class="fuel-btn bg-slate-800 border border-slate-700 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider text-slate-400 fuel-btn-active transition hover:bg-yellow-400/10">Diesel</button>
+                        <button id="fuel-e5"
+                            class="fuel-btn bg-slate-800 border border-slate-700 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider text-slate-400 transition hover:bg-yellow-400/10">Super
+                            E5</button>
+                        <button id="fuel-e10"
+                            class="fuel-btn bg-slate-800 border border-slate-700 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider text-slate-400 transition hover:bg-yellow-400/10">Super
+                            E10</button>
                     </div>
                 </div>
-            </div>
 
-            <div class="glass p-6 rounded-[2.5rem] border border-yellow-400/20">
-                <h3 class="text-xs font-black text-yellow-400 uppercase tracking-widest mb-4">Admin</h3>
-                <input type="text" id="admin-new-user" placeholder="Username"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none text-sm mb-3 text-white">
-                <input type="text" id="admin-new-pw" placeholder="Password"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none text-sm mb-3 text-white">
-                <button id="admin-create-btn"
-                    class="w-full bg-yellow-400 text-slate-900 font-black py-3 rounded-xl text-xs tracking-widest uppercase">NUTZER
-                    ERSTELLEN</button>
+                <div class="glass p-6 rounded-[2.5rem] hover:border-white/20 transition duration-300">
+                    <h3 class="text-xs font-black text-yellow-400 uppercase tracking-widest mb-6 flex items-center">
+                        <i class="fas fa-sliders mr-2"></i> Überwachung
+                    </h3>
+                    <div class="space-y-8">
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-3 text-gray-500">
+                                <span>RADIUS</span><span class="text-yellow-400" id="radiusVal">2 km</span>
+                            </div>
+                            <input type="range" id="radiusInput" min="0.5" max="15" step="0.5" value="2" class="w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-3 text-gray-500">
+                                <span>PREISLIMIT</span><span class="text-yellow-400" id="priceVal">1.55 €</span>
+                            </div>
+                            <input type="range" id="priceInput" min="1.00" max="2.50" step="0.01" value="1.55"
+                                class="w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="glass p-6 rounded-[2.5rem] border border-yellow-400/20 hover:border-yellow-400/40 transition duration-300">
+                    <h3 class="text-xs font-black text-yellow-400 uppercase tracking-widest mb-4">Admin</h3>
+                    <input type="text" id="admin-new-user" placeholder="Username"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none text-sm mb-3 text-white focus:border-yellow-400 transition">
+                    <input type="password" id="admin-new-pw" placeholder="Password"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none text-sm mb-3 text-white focus:border-yellow-400 transition">
+                    <button id="admin-create-btn"
+                        class="w-full bg-yellow-400 text-slate-900 font-black py-3 rounded-xl text-xs tracking-widest uppercase hover:bg-yellow-300 transition">NUTZER
+                        ERSTELLEN</button>
+                </div>
+                <button id="logout-btn"
+                    class="w-full py-4 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-500/10 rounded-2xl transition"><i
+                        class="fas fa-power-off mr-2"></i> Abmelden</button>
             </div>
-            <button id="logout-btn" class="w-full py-4 text-red-500 font-black text-xs uppercase tracking-widest"><i
-                    class="fas fa-power-off mr-2"></i> Abmelden</button>
         </div>
     </section>
 
-    <!-- BOTTOM SHEET -->
+    <!-- BOTTOM SHEET / FLOATING CARD -->
     <div id="sheetBackdrop" onclick="window.closeStationDetails()"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] hidden opacity-0 transition-opacity duration-300">
     </div>
     <div id="bottomSheet"
-        class="fixed bottom-0 left-0 right-0 glass rounded-t-[2.5rem] p-8 pb-10 sheet-hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/10">
-        <div class="w-12 h-1 bg-slate-700 rounded-full mx-auto mb-6"></div>
+        class="fixed bottom-0 left-0 right-0 md:left-auto md:right-8 md:bottom-20 md:w-96 glass rounded-t-[2.5rem] md:rounded-[2.5rem] p-8 pb-10 sheet-hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-2xl border-t border-white/10 md:border">
+        <div class="w-12 h-1 bg-slate-700 rounded-full mx-auto mb-6 md:hidden"></div>
+        <button onclick="window.closeStationDetails()"
+            class="hidden md:block absolute top-6 right-6 text-gray-500 hover:text-white transition"><i
+                class="fas fa-times text-xl"></i></button>
+
         <div id="sheetContent">
-            <div class="flex justify-between items-start mb-6">
+            <div class="flex justify-between items-start mb-6 pr-4">
                 <div>
-                    <h3 id="sheetName" class="text-2xl font-black italic tracking-tighter uppercase text-white">JET
+                    <h3 id="sheetName"
+                        class="text-2xl font-black italic tracking-tighter uppercase text-white leading-tight">JET
                         Station</h3>
                     <p id="sheetInfo" class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Berlin
-                        Mitte ● 0.8 km entfernt</p>
+                        Mitte ● 0.8 km</p>
                 </div>
-                <div class="text-right">
+                <div class="text-right whitespace-nowrap ml-2">
                     <div id="sheetPrice" class="text-3xl font-black text-yellow-400">1.51 €</div>
-                    <div id="sheetFuel" class="text-[10px] text-gray-500 font-black uppercase">Aktueller Preis</div>
+                    <div id="sheetFuel" class="text-[10px] text-gray-500 font-black uppercase">Aktuell</div>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4 mb-8">
@@ -419,34 +464,33 @@
                 </div>
             </div>
             <button id="naviBtn"
-                class="w-full bg-yellow-400 text-slate-900 font-black py-5 rounded-3xl flex items-center justify-center space-x-3 yellow-glow active:scale-95 transition text-lg italic">
+                class="w-full bg-yellow-400 text-slate-900 font-black py-5 rounded-3xl flex items-center justify-center space-x-3 yellow-glow active:scale-95 hover:bg-yellow-300 transition text-lg italic">
                 <i class="fas fa-location-arrow"></i>
                 <span>NAVI DAHIN</span>
             </button>
         </div>
     </div>
 
-    <!-- BOTTOM NAVBAR -->
+    <!-- RESPONSIVE NAVBAR -->
     <nav id="navbar"
-        class="hidden fixed bottom-8 left-8 right-8 glass rounded-[2.5rem] p-3 flex justify-around items-center z-[100] border border-white/5 shadow-2xl">
+        class="hidden fixed bottom-8 left-8 right-8 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:left-8 md:right-auto md:w-20 md:flex-col md:h-auto md:py-8 md:space-y-8 glass rounded-[2.5rem] p-3 flex justify-around items-center z-[100] border border-white/5 shadow-2xl transition-all duration-300">
         <button onclick="window.switchView('dashboard')" id="nav-dashboard"
-            class="flex-1 flex flex-col items-center nav-active">
-            <i class="fas fa-location-arrow text-lg"></i>
-            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter">Live</span>
+            class="flex-1 md:flex-none w-full flex flex-col items-center nav-active group p-2 rounded-xl transition">
+            <i class="fas fa-location-arrow text-lg group-hover:scale-110 transition"></i>
+            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter md:hidden">Live</span>
         </button>
         <button onclick="window.switchView('explore')" id="nav-explore"
-            class="flex-1 flex flex-col items-center text-gray-500">
-            <i class="fas fa-list-ul text-lg"></i>
-            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter">Suche</span>
+            class="flex-1 md:flex-none w-full flex flex-col items-center text-gray-500 group p-2 rounded-xl transition hover:text-white">
+            <i class="fas fa-list-ul text-lg group-hover:scale-110 transition"></i>
+            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter md:hidden">Suche</span>
         </button>
         <button onclick="window.switchView('settings')" id="nav-settings"
-            class="flex-1 flex flex-col items-center text-gray-500">
-            <i class="fas fa-user-gear text-lg"></i>
-            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter">Setup</span>
+            class="flex-1 md:flex-none w-full flex flex-col items-center text-gray-500 group p-2 rounded-xl transition hover:text-white">
+            <i class="fas fa-user-gear text-lg group-hover:scale-110 transition"></i>
+            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter md:hidden">Setup</span>
         </button>
     </nav>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="app.js"></script>
 </body>

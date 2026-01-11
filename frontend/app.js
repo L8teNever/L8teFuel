@@ -307,12 +307,10 @@ async function checkPrices() {
         console.log('💰 Price Check Response:', data);
 
         if (data.status === 'active' || data.status === 'api_error') {
-            stations = data.matches || []; // Update global stations
+            stations = data.all_stations || []; // ALL stations for map display
+            window.targetPrice = data.target_price || 999; // Store target price globally
 
-            console.log(`📍 Found ${stations.length} matching stations`);
-            if (data.total_stations) {
-                console.log(`   Total stations in area: ${data.total_stations}`);
-            }
+            console.log(`📍 Found ${stations.length} stations in radius`);
             if (data.debug) {
                 console.warn(`   ${data.debug}`);
             }
@@ -321,10 +319,10 @@ async function checkPrices() {
             }
 
             updateStationMarkers();
-            loadExploreList();
 
             // Notification logic (simple: notify on nearest cheapest)
-            if (stations.length > 0 && Notification.permission === 'granted') {
+            const cheapStations = stations.filter(s => s.price <= window.targetPrice);
+            if (cheapStations.length > 0 && Notification.permission === 'granted') {
                 // Logic to prevent spamming notifications can be added here
             }
         } else if (data.status === 'inactive') {
@@ -342,35 +340,27 @@ function updateStationMarkers() {
     stationMarkers.forEach(m => mapHome.removeLayer(m));
     stationMarkers = [];
 
-    const limit = parseFloat(document.getElementById('priceInput').value);
+    const targetPrice = window.targetPrice || parseFloat(document.getElementById('priceInput').value);
 
     stations.forEach((s, idx) => {
-        // Price Selection Logic already handled by Backend?
-        // Backend returns "price" field which is the best price for that station.
-        // Wait, backend logic I wrote earlier selects price based on what exists. 
-        // But frontend now has fuel type selector.
-        // My backend logic was "Default priority: E10 -> E5 -> Diesel".
-        // Use the fuel type selector in frontend to FILTER?
-        // The backend `check_prices` I wrote returns a single `price` per station object.
-        // Implication: The backend decides the price.
-        // ISSUE: The user wants to toggle E5/Diesel on frontend.
-        // FIX: The backend should probably return ALL prices, or I should update backend to accept fuel type.
-        // FOR NOW: Stick to the backend I implemented (which returns one 'price').
-        //          OR better: assume `s.price` is the price relevant to the user.
-        //          Wait, the User's mock data had `prices: { diesel: ..., e5: ... }`.
-        //          My backend returns `price`.
-        //          I should update the UI to just use `s.price`.
-
         const currentPrice = s.price;
-        const isCheap = currentPrice <= limit;
+        const isCheap = currentPrice <= targetPrice;
+
+        // Different sizes based on price
+        // Cheap stations: large and prominent
+        // Expensive stations: small and subtle
+        const iconSize = isCheap ? [80, 36] : [50, 24];
+        const iconAnchor = isCheap ? [40, 36] : [25, 24];
+        const fontSize = isCheap ? '14px' : '10px';
+        const fontWeight = isCheap ? '900' : '700';
 
         const icon = L.divIcon({
             className: 'custom-div-icon',
-            html: `<div class="price-marker ${isCheap ? 'cheap' : ''}" onclick="window.openStationDetails(${idx})">${currentPrice.toFixed(2)} €</div>`,
-            iconSize: [60, 30],
-            iconAnchor: [30, 30]
+            html: `<div class="price-marker ${isCheap ? 'cheap' : 'expensive'}" onclick="window.openStationDetails(${idx})" style="font-size: ${fontSize}; font-weight: ${fontWeight};">${currentPrice.toFixed(2)} €</div>`,
+            iconSize: iconSize,
+            iconAnchor: iconAnchor
         });
-        const m = L.marker([s.lat, s.lng], { icon: icon }).addTo(mapHome); // Note: Backend returns 'lng', Leaflet uses 'lng' too inside array or object? Leaflet [lat, lng] array.
+        const m = L.marker([s.lat, s.lng], { icon: icon }).addTo(mapHome);
         stationMarkers.push(m);
     });
 }
@@ -419,9 +409,30 @@ window.openStationDetails = (index) => {
         // Note: Currently backend decides price. Ideally we send type to backend.
         // For this task, we just update UI. 
         updateStationMarkers();
-        loadExploreList();
     });
 });
+
+// Explore Fuel Type Buttons (INDEPENDENT)
+['diesel', 'e5', 'e10'].forEach(type => {
+    document.getElementById('explore-fuel-' + type).addEventListener('click', () => {
+        exploreFuelType = type;
+        document.querySelectorAll('.explore-fuel-btn').forEach(btn => btn.classList.remove('explore-fuel-active'));
+        document.getElementById('explore-fuel-' + type).classList.add('explore-fuel-active');
+        loadExploreList(); // Reload with new fuel type
+    });
+});
+
+// Explore Filter Updates (INDEPENDENT)
+document.getElementById('filterPrice').addEventListener('input', () => {
+    loadExploreList();
+});
+document.getElementById('filterDist').addEventListener('input', () => {
+    loadExploreList();
+});
+document.getElementById('searchInput').addEventListener('input', () => {
+    loadExploreList();
+});
+
 
 // Radius & Price Slider
 document.getElementById('radiusInput').addEventListener('input', async (e) => {
@@ -465,16 +476,19 @@ function updateRadiusVisual() {
     }
 }
 
-// Explore List Search/Filter
-window.loadExploreList = () => { // Exposed for oninput attributes in HTML
+// Explore List Search/Filter - INDEPENDENT from dashboard settings
+let exploreStations = []; // Separate array for explore results
+let exploreFuelType = 'diesel'; // Independent fuel type for explore
+
+window.loadExploreList = async () => {
     const list = document.getElementById('exploreList');
     if (!list) return;
 
-    // Check if input exists (might be in other view not initialized? No it's static)
+    // Get search query
     const searchInput = document.getElementById('searchInput');
     const searchQuery = searchInput ? searchInput.value.toLowerCase() : "";
 
-    // For Explore view filters:
+    // Get INDEPENDENT filters from Explore page
     const filterPriceEl = document.getElementById('filterPrice');
     const filterDistEl = document.getElementById('filterDist');
 
@@ -485,41 +499,90 @@ window.loadExploreList = () => { // Exposed for oninput attributes in HTML
     if (document.getElementById('filterPriceVal')) document.getElementById('filterPriceVal').innerText = maxPrice.toFixed(2) + " €";
     if (document.getElementById('filterDistVal')) document.getElementById('filterDistVal').innerText = maxDist + " km";
 
-    const filtered = stations.filter(s => {
-        const matchesSearch = s.name.toLowerCase().includes(searchQuery);
-        const matchesPrice = s.price <= maxPrice;
-        const matchesDist = s.distance <= maxDist;
-        return matchesSearch && matchesPrice && matchesDist;
-    });
+    // Fetch from independent search endpoint
+    try {
+        const params = new URLSearchParams({
+            radius: maxDist,
+            max_price: maxPrice,
+            fuel_type: exploreFuelType
+        });
 
-    if (filtered.length === 0) {
-        list.innerHTML = `<p class="text-center text-gray-500 py-10 italic">Keine Ergebnisse gefunden.</p>`;
-        return;
+        const res = await fetch(`/search-stations?${params}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        console.log('🔍 Explore Search Response:', data);
+
+        if (data.status === 'active') {
+            exploreStations = data.stations || [];
+        } else {
+            exploreStations = [];
+        }
+
+        // Apply search filter
+        const filtered = exploreStations.filter(s => {
+            return s.name.toLowerCase().includes(searchQuery);
+        });
+
+        if (filtered.length === 0) {
+            list.innerHTML = `<p class="text-center text-gray-500 py-10 italic">Keine Ergebnisse gefunden.</p>`;
+            return;
+        }
+
+        list.innerHTML = filtered.map((s, idx) => {
+            const originalIdx = exploreStations.indexOf(s);
+
+            return `
+            <div class="glass p-5 rounded-3xl flex justify-between items-center transition-all active:scale-95 cursor-pointer" onclick="window.openExploreStationDetails(${originalIdx})">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mr-4 border border-white/5">
+                         <i class="fas fa-gas-pump text-yellow-400"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm text-white">${s.name}</div>
+                        <div class="text-[9px] text-gray-500 font-black uppercase mt-1 tracking-wider">${s.distance.toFixed(1)} km • <span class="text-green-500">Geöffnet</span></div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-lg font-black text-green-400">${s.price.toFixed(2)} €</div>
+                    <div class="text-[8px] text-gray-500 uppercase font-black">${s.fuel_type || 'diesel'}</div>
+                </div>
+            </div>
+        `}).join('');
+    } catch (err) {
+        console.error('Error loading explore list:', err);
+        list.innerHTML = `<p class="text-center text-red-500 py-10">Fehler beim Laden der Tankstellen.</p>`;
     }
+};
 
-    list.innerHTML = filtered.map((s, idx) => {
-        // We use the index in GLOBAL 'stations' array for the click handler to find it
-        const originalIdx = stations.indexOf(s);
-        const limit = parseFloat(document.getElementById('priceInput').value);
-        // Note: limit here is the User's "Target Price" from setup, used for green highlighting.
+// Open station details from explore list
+window.openExploreStationDetails = (index) => {
+    const station = exploreStations[index];
+    if (!station) return;
 
-        return `
-        <div class="glass p-5 rounded-3xl flex justify-between items-center transition-all active:scale-95 cursor-pointer" onclick="window.openStationDetails(${originalIdx})">
-            <div class="flex items-center">
-                <div class="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mr-4 border border-white/5">
-                     <i class="fas fa-gas-pump ${s.price <= limit ? 'text-yellow-400' : 'text-slate-600'}"></i>
-                </div>
-                <div>
-                    <div class="font-bold text-sm text-white">${s.name}</div>
-                    <div class="text-[9px] text-gray-500 font-black uppercase mt-1 tracking-wider">${s.distance.toFixed(1)} km ● <span class="text-green-500">Geöffnet</span></div>
-                </div>
-            </div>
-            <div class="text-right">
-                <div class="text-lg font-black ${s.price <= limit ? 'text-green-400' : 'text-white'}">${s.price.toFixed(2)} €</div>
-            </div>
-        </div>
-    `}).join('');
-}
+    document.getElementById('sheetName').innerText = station.name;
+    document.getElementById('sheetPrice').innerText = station.price.toFixed(2) + " €";
+    document.getElementById('sheetInfo').innerText = `${station.distance.toFixed(1)} km entfernt`;
+
+    const statusEl = document.getElementById('sheetOpen');
+    statusEl.innerText = "Geöffnet";
+    statusEl.className = "text-green-400 font-bold text-sm";
+
+    document.getElementById('naviBtn').onclick = () => {
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
+        window.open(url, '_blank');
+    };
+
+    const sheet = document.getElementById('bottomSheet');
+    const backdrop = document.getElementById('sheetBackdrop');
+    backdrop.classList.remove('hidden');
+    setTimeout(() => {
+        backdrop.style.opacity = "1";
+        sheet.classList.remove('sheet-hidden');
+        sheet.classList.add('sheet-visible');
+    }, 10);
+};
 
 // Initial Call to load list (empty initially)
 loadExploreList();

@@ -149,8 +149,9 @@ async def debug_settings(current_user: models.User = Depends(auth.get_current_us
 
 @app.get("/check-prices")
 async def check_prices(current_user: models.User = Depends(auth.get_current_user)):
+    """Returns ALL stations in radius for map display (Dashboard)"""
     if not current_user.settings.is_active or not current_user.settings.latitude:
-        return {"status": "inactive", "matches": []}
+        return {"status": "inactive", "all_stations": []}
     
     api_key = os.getenv("TANKERKOENIG_API_KEY")
     
@@ -166,9 +167,11 @@ async def check_prices(current_user: models.User = Depends(auth.get_current_user
         mock_stations = [
             {"name": "MOCK (No API Key) - Shell", "price": 1.65, "distance": 1.2, "lat": current_user.settings.latitude + 0.01, "lng": current_user.settings.longitude + 0.01},
             {"name": "MOCK (No API Key) - Aral", "price": 1.58, "distance": 3.4, "lat": current_user.settings.latitude + 0.03, "lng": current_user.settings.longitude + 0.02},
+            {"name": "MOCK (No API Key) - Esso", "price": 1.72, "distance": 2.1, "lat": current_user.settings.latitude + 0.02, "lng": current_user.settings.longitude + 0.015},
         ]
-        matches = [s for s in mock_stations if s["price"] <= (current_user.settings.target_price or 999) and s["distance"] <= current_user.settings.radius]
-        return {"status": "active", "matches": matches, "debug": "Using MOCK data - configure real API key"}
+        # Return ALL stations for map display
+        all_in_radius = [s for s in mock_stations if s["distance"] <= current_user.settings.radius]
+        return {"status": "active", "all_stations": all_in_radius, "target_price": current_user.settings.target_price, "debug": "Using MOCK data - configure real API key"}
 
     try:
         url = "https://creativecommons.tankerkoenig.de/json/list.php"
@@ -197,13 +200,12 @@ async def check_prices(current_user: models.User = Depends(auth.get_current_user
             error_msg = data.get("message", "Unknown API error")
             print(f"❌ API Error: {error_msg}")
             print(f"   Full response: {data}")
-            return {"status": "api_error", "matches": [], "error": error_msg}
+            return {"status": "api_error", "all_stations": [], "error": error_msg}
 
         stations = data.get("stations", [])
         print(f"✅ Found {len(stations)} stations from API")
         
-        matches = []
-        target_price = current_user.settings.target_price or 999.0
+        all_stations = []
         
         for s in stations:
             if not s.get("isOpen", True):
@@ -218,23 +220,118 @@ async def check_prices(current_user: models.User = Depends(auth.get_current_user
             if not price:
                  continue
 
-            if price <= target_price:
-                matches.append({
-                    "name": f"{s.get('brand')} - {s.get('street')} {s.get('houseNumber', '')}", 
-                    "price": price, 
-                    "distance": s.get("dist"), 
-                    "lat": s.get("lat"), 
-                    "lng": s.get("lng")
-                })
+            # Return ALL stations (no price filtering here)
+            all_stations.append({
+                "name": f"{s.get('brand')} - {s.get('street')} {s.get('houseNumber', '')}", 
+                "price": price, 
+                "distance": s.get("dist"), 
+                "lat": s.get("lat"), 
+                "lng": s.get("lng")
+            })
         
-        print(f"💰 {len(matches)} stations match price criteria (<= {target_price}€)")
-        return {"status": "active", "matches": matches, "total_stations": len(stations)}
+        print(f"📍 Returning {len(all_stations)} stations for map display")
+        return {"status": "active", "all_stations": all_stations, "target_price": current_user.settings.target_price}
 
     except Exception as e:
         print(f"❌ Error fetching prices: {e}")
         import traceback
         traceback.print_exc()
-        return {"status": "error", "matches": [], "error": str(e)}
+        return {"status": "error", "all_stations": [], "error": str(e)}
+
+@app.get("/search-stations")
+async def search_stations(
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    radius: Optional[float] = None,
+    max_price: Optional[float] = None,
+    fuel_type: Optional[str] = "diesel",
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Independent search for Explore page with custom filters"""
+    
+    # Use provided params or fall back to user settings
+    search_lat = lat if lat is not None else current_user.settings.latitude
+    search_lng = lng if lng is not None else current_user.settings.longitude
+    search_radius = radius if radius is not None else current_user.settings.radius
+    search_max_price = max_price if max_price is not None else 999.0
+    
+    if not search_lat or not search_lng:
+        return {"status": "no_location", "stations": []}
+    
+    api_key = os.getenv("TANKERKOENIG_API_KEY")
+    
+    # Validate radius (Tankerkoenig API max is 25 km)
+    search_radius = min(search_radius, 25.0)
+    
+    # Simple Mock fallback
+    if not api_key or api_key.startswith("0000"):
+        mock_stations = [
+            {"name": "MOCK - Shell", "diesel": 1.65, "e5": 1.75, "e10": 1.72, "distance": 1.2, "lat": search_lat + 0.01, "lng": search_lng + 0.01},
+            {"name": "MOCK - Aral", "diesel": 1.58, "e5": 1.68, "e10": 1.65, "distance": 3.4, "lat": search_lat + 0.03, "lng": search_lng + 0.02},
+            {"name": "MOCK - Esso", "diesel": 1.72, "e5": 1.82, "e10": 1.79, "distance": 2.1, "lat": search_lat + 0.02, "lng": search_lng + 0.015},
+        ]
+        
+        results = []
+        for s in mock_stations:
+            if s["distance"] > search_radius:
+                continue
+            price = s.get(fuel_type, s.get("diesel"))
+            if price <= search_max_price:
+                results.append({
+                    "name": s["name"],
+                    "price": price,
+                    "distance": s["distance"],
+                    "lat": s["lat"],
+                    "lng": s["lng"],
+                    "fuel_type": fuel_type
+                })
+        
+        return {"status": "active", "stations": results, "debug": "Using MOCK data"}
+
+    try:
+        url = "https://creativecommons.tankerkoenig.de/json/list.php"
+        params = {
+            "lat": search_lat,
+            "lng": search_lng,
+            "rad": search_radius,
+            "sort": "dist",
+            "type": "all",
+            "apikey": api_key
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if not data.get("ok"):
+            return {"status": "api_error", "stations": [], "error": data.get("message", "Unknown error")}
+
+        stations = data.get("stations", [])
+        results = []
+        
+        for s in stations:
+            if not s.get("isOpen", True):
+                continue
+
+            # Get price for selected fuel type
+            price = s.get(fuel_type)
+            if not price:
+                continue
+            
+            if price <= search_max_price:
+                results.append({
+                    "name": f"{s.get('brand')} - {s.get('street')} {s.get('houseNumber', '')}", 
+                    "price": price, 
+                    "distance": s.get("dist"), 
+                    "lat": s.get("lat"), 
+                    "lng": s.get("lng"),
+                    "fuel_type": fuel_type
+                })
+        
+        return {"status": "active", "stations": results}
+
+    except Exception as e:
+        print(f"❌ Error searching stations: {e}")
+        return {"status": "error", "stations": [], "error": str(e)}
 
 # Static Files
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
