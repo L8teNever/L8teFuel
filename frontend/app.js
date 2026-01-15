@@ -415,24 +415,46 @@ window.openStationDetails = (index) => {
 
 // Explore Fuel Type Buttons (INDEPENDENT)
 ['diesel', 'e5', 'e10'].forEach(type => {
-    document.getElementById('explore-fuel-' + type).addEventListener('click', () => {
-        exploreFuelType = type;
-        document.querySelectorAll('.explore-fuel-btn').forEach(btn => btn.classList.remove('explore-fuel-active'));
-        document.getElementById('explore-fuel-' + type).classList.add('explore-fuel-active');
-        loadExploreList(); // Reload with new fuel type
-    });
+    const btn = document.getElementById('explore-fuel-' + type);
+    if (btn) {
+        btn.addEventListener('click', () => {
+            exploreFuelType = type;
+            document.querySelectorAll('.explore-fuel-btn').forEach(b => b.classList.remove('explore-fuel-active'));
+            btn.classList.add('explore-fuel-active');
+            loadExploreList(true); // Reload with loading indicator
+        });
+    }
 });
 
-// Explore Filter Updates (INDEPENDENT)
-document.getElementById('filterPrice').addEventListener('input', () => {
-    loadExploreList();
-});
-document.getElementById('filterDist').addEventListener('input', () => {
-    loadExploreList();
-});
-document.getElementById('searchInput').addEventListener('input', () => {
-    loadExploreList();
-});
+// Explore Filter Updates (INDEPENDENT) - with debouncing via loadExploreList
+const filterPriceEl = document.getElementById('filterPrice');
+const filterDistEl = document.getElementById('filterDist');
+const filterOpenEl = document.getElementById('filterOpen');
+const searchInputEl = document.getElementById('searchInput');
+
+if (filterPriceEl) {
+    filterPriceEl.addEventListener('input', () => {
+        loadExploreList();
+    });
+}
+
+if (filterDistEl) {
+    filterDistEl.addEventListener('input', () => {
+        loadExploreList();
+    });
+}
+
+if (filterOpenEl) {
+    filterOpenEl.addEventListener('change', () => {
+        loadExploreList(true);
+    });
+}
+
+if (searchInputEl) {
+    searchInputEl.addEventListener('input', () => {
+        loadExploreList();
+    });
+}
 
 
 // Radius & Price Slider
@@ -480,25 +502,75 @@ function updateRadiusVisual() {
 // Explore List Search/Filter - INDEPENDENT from dashboard settings
 let exploreStations = []; // Separate array for explore results
 let exploreFuelType = 'diesel'; // Independent fuel type for explore
+let exploreLoadTimeout = null; // For debouncing
 
-window.loadExploreList = async () => {
+window.loadExploreList = async (showLoading = false) => {
+    const list = document.getElementById('exploreList');
+    if (!list) return;
+
+    // Debounce: Clear previous timeout
+    if (exploreLoadTimeout) {
+        clearTimeout(exploreLoadTimeout);
+    }
+
+    // Show loading state if requested
+    if (showLoading) {
+        list.innerHTML = `
+            <div class="col-span-full flex flex-col items-center justify-center py-20">
+                <div class="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p class="text-gray-500 font-bold text-sm">Lade Tankstellen...</p>
+            </div>
+        `;
+    }
+
+    // Debounce the actual load
+    exploreLoadTimeout = setTimeout(async () => {
+        await performExploreSearch();
+    }, 300);
+};
+
+async function performExploreSearch() {
     const list = document.getElementById('exploreList');
     if (!list) return;
 
     // Get search query
     const searchInput = document.getElementById('searchInput');
-    const searchQuery = searchInput ? searchInput.value.toLowerCase() : "";
+    const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
     // Get INDEPENDENT filters from Explore page
     const filterPriceEl = document.getElementById('filterPrice');
     const filterDistEl = document.getElementById('filterDist');
+    const filterOpenEl = document.getElementById('filterOpen');
 
     const maxPrice = filterPriceEl ? parseFloat(filterPriceEl.value) : 2.50;
     const maxDist = filterDistEl ? parseFloat(filterDistEl.value) : 15;
+    const onlyOpen = filterOpenEl ? filterOpenEl.checked : true;
 
     // Update labels
-    if (document.getElementById('filterPriceVal')) document.getElementById('filterPriceVal').innerText = maxPrice.toFixed(2) + " €";
-    if (document.getElementById('filterDistVal')) document.getElementById('filterDistVal').innerText = maxDist + " km";
+    if (document.getElementById('filterPriceVal')) {
+        document.getElementById('filterPriceVal').innerText = maxPrice.toFixed(2) + " €";
+    }
+    if (document.getElementById('filterDistVal')) {
+        document.getElementById('filterDistVal').innerText = maxDist + " km";
+    }
+
+    // Check if user has location
+    if (!user || !user.settings || !user.settings.latitude || !user.settings.longitude) {
+        list.innerHTML = `
+            <div class="col-span-full glass p-8 rounded-3xl text-center">
+                <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4 border border-yellow-400/20">
+                    <i class="fas fa-location-crosshairs text-3xl text-yellow-400"></i>
+                </div>
+                <h3 class="text-xl font-black text-white mb-2">Keine Position verfügbar</h3>
+                <p class="text-gray-400 text-sm mb-6">Aktiviere das Tracking im Dashboard, um Tankstellen in deiner Nähe zu finden.</p>
+                <button onclick="window.switchView('dashboard')" class="bg-yellow-400 text-slate-900 font-black py-3 px-6 rounded-xl hover:bg-yellow-300 transition">
+                    Zum Dashboard
+                </button>
+            </div>
+        `;
+        updateExploreCount(0);
+        return;
+    }
 
     // Fetch from independent search endpoint
     try {
@@ -511,51 +583,132 @@ window.loadExploreList = async () => {
         const res = await fetch(`/search-stations?${params}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
         const data = await res.json();
 
         console.log('🔍 Explore Search Response:', data);
 
         if (data.status === 'active') {
             exploreStations = data.stations || [];
+        } else if (data.status === 'no_location') {
+            list.innerHTML = `
+                <div class="col-span-full glass p-8 rounded-3xl text-center">
+                    <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-map-marker-alt text-3xl text-red-400"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-white mb-2">Keine Position</h3>
+                    <p class="text-gray-400 text-sm">Starte das Tracking, um deine Position zu ermitteln.</p>
+                </div>
+            `;
+            updateExploreCount(0);
+            return;
         } else {
             exploreStations = [];
         }
 
-        // Apply search filter
-        const filtered = exploreStations.filter(s => {
-            return s.name.toLowerCase().includes(searchQuery);
-        });
+        // Apply client-side search filter
+        let filtered = exploreStations;
 
+        if (searchQuery) {
+            filtered = exploreStations.filter(s => {
+                return s.name.toLowerCase().includes(searchQuery);
+            });
+        }
+
+        // Update count
+        updateExploreCount(filtered.length);
+
+        // Display results
         if (filtered.length === 0) {
-            list.innerHTML = `<p class="text-center text-gray-500 py-10 italic">Keine Ergebnisse gefunden.</p>`;
+            const hasStations = exploreStations.length > 0;
+            list.innerHTML = `
+                <div class="col-span-full glass p-8 rounded-3xl text-center">
+                    <div class="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-${hasStations ? 'search' : 'gas-pump'} text-3xl text-gray-500"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-white mb-2">
+                        ${hasStations ? 'Keine Treffer' : 'Keine Tankstellen gefunden'}
+                    </h3>
+                    <p class="text-gray-400 text-sm">
+                        ${hasStations
+                    ? 'Versuche es mit anderen Suchbegriffen oder Filtern.'
+                    : 'Erhöhe den Suchradius oder passe die Filter an.'}
+                    </p>
+                </div>
+            `;
             return;
         }
 
+        // Render station cards
         list.innerHTML = filtered.map((s, idx) => {
             const originalIdx = exploreStations.indexOf(s);
 
+            // Determine price color based on value
+            let priceColor = 'text-green-400';
+            if (s.price > 1.70) priceColor = 'text-yellow-400';
+            if (s.price > 1.85) priceColor = 'text-orange-400';
+            if (s.price > 2.00) priceColor = 'text-red-400';
+
             return `
-            <div class="glass p-5 rounded-3xl flex justify-between items-center transition-all active:scale-95 cursor-pointer" onclick="window.openExploreStationDetails(${originalIdx})">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mr-4 border border-white/5">
-                         <i class="fas fa-gas-pump text-yellow-400"></i>
-                    </div>
-                    <div>
-                        <div class="font-bold text-sm text-white">${s.name}</div>
-                        <div class="text-[9px] text-gray-500 font-black uppercase mt-1 tracking-wider">${s.distance.toFixed(1)} km • <span class="text-green-500">Geöffnet</span></div>
+            <div class="glass p-5 rounded-3xl hover:border-yellow-400/30 border border-white/10 transition-all duration-300 active:scale-95 cursor-pointer group" 
+                 onclick="window.openExploreStationDetails(${originalIdx})">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-start flex-1">
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center mr-3 shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fas fa-gas-pump text-slate-900 text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-black text-sm text-white mb-1 truncate">${s.name}</div>
+                            <div class="text-[9px] text-gray-500 font-black uppercase tracking-wider flex items-center">
+                                <i class="fas fa-location-dot mr-1"></i>
+                                ${s.distance.toFixed(1)} km
+                                <span class="mx-2">•</span>
+                                <span class="text-green-500"><i class="fas fa-clock mr-1"></i>Geöffnet</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="text-right">
-                    <div class="text-lg font-black text-green-400">${s.price.toFixed(2)} €</div>
-                    <div class="text-[8px] text-gray-500 uppercase font-black">${s.fuel_type || 'diesel'}</div>
+                <div class="flex justify-between items-end pt-3 border-t border-white/5">
+                    <div class="text-[8px] text-gray-500 uppercase font-black tracking-widest">
+                        ${s.fuel_type === 'diesel' ? 'Diesel' : s.fuel_type === 'e5' ? 'Super E5' : 'Super E10'}
+                    </div>
+                    <div class="text-2xl font-black ${priceColor}">
+                        ${s.price.toFixed(2)} €
+                    </div>
                 </div>
             </div>
-        `}).join('');
+            `;
+        }).join('');
+
     } catch (err) {
         console.error('Error loading explore list:', err);
-        list.innerHTML = `<p class="text-center text-red-500 py-10">Fehler beim Laden der Tankstellen.</p>`;
+        list.innerHTML = `
+            <div class="col-span-full glass p-8 rounded-3xl text-center border border-red-500/20">
+                <div class="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-3xl text-red-500"></i>
+                </div>
+                <h3 class="text-xl font-black text-white mb-2">Fehler beim Laden</h3>
+                <p class="text-gray-400 text-sm mb-4">${err.message || 'Unbekannter Fehler'}</p>
+                <button onclick="window.loadExploreList(true)" class="bg-yellow-400 text-slate-900 font-black py-2 px-4 rounded-xl text-sm hover:bg-yellow-300 transition">
+                    <i class="fas fa-refresh mr-2"></i>Erneut versuchen
+                </button>
+            </div>
+        `;
+        updateExploreCount(0);
     }
-};
+}
+
+function updateExploreCount(count) {
+    const countEl = document.getElementById('exploreCount');
+    if (countEl) {
+        countEl.innerText = count;
+    }
+}
+
 
 // Open station details from explore list
 window.openExploreStationDetails = (index) => {
@@ -585,8 +738,6 @@ window.openExploreStationDetails = (index) => {
     }, 10);
 };
 
-// Initial Call to load list (empty initially)
-loadExploreList();
 
 // Admin Creation
 document.getElementById('admin-create-btn').addEventListener('click', async () => {
