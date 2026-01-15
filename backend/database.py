@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////app/data/l8tefuel.db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./backend/fuel_tracker.db")
 
 # Ensure directory exists (useful for local development or volume edge cases)
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite:///"):
