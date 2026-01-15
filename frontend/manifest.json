@@ -1,21 +1,29 @@
 {
-  "name": "L8teFuel",
+  "name": "L8teFuel - Smart Fuel Tracker",
   "short_name": "L8teFuel",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
-  "theme_color": "#3b82f6",
-  "description": "Smart fuel price tracker with background notification alerts.",
+  "theme_color": "#facc15",
+  "description": "Intelligenter Spritpreis-Tracker mit Live-Überwachung und Push-Benachrichtigungen für günstige Tankstellen in deiner Nähe.",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": [
+    "utilities",
+    "navigation"
+  ],
+  "screenshots": []
 }

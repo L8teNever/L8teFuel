@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Test - L8teFuel</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            color: white;
+            padding: 2rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            background: #facc15;
+            color: #0f172a;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            background: #fbbf24;
+        }
+
+        button:disabled {
+            background: #64748b;
+            cursor: not-allowed;
+        }
+
+        .status {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .status.success {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .status.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .status.info {
+            background: rgba(250, 204, 21, 0.2);
+            color: #facc15;
+        }
+
+        h1 {
+            color: #facc15;
+            font-weight: 900;
+            font-style: italic;
+        }
+
+        h2 {
+            color: #facc15;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>⛽ L8teFuel PWA Test</h1>
+
+    <div class="card">
+        <h2>🔔 Benachrichtigungs-Test</h2>
+        <p>Teste die Push-Benachrichtigungen der App:</p>
+
+        <button id="requestPermission">Benachrichtigungs-Berechtigung anfragen</button>
+        <button id="testNotification" disabled>Test-Benachrichtigung senden</button>
+        <button id="testCheapStation" disabled>Günstige Tankstelle simulieren</button>
+
+        <div id="permissionStatus" class="status info" style="margin-top: 1rem;">
+            Status: <span id="permStatus">Unbekannt</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📱 PWA Installation</h2>
+        <p>Prüfe ob die App als PWA installiert werden kann:</p>
+
+        <button id="checkPWA">PWA-Status prüfen</button>
+        <button id="installPWA" disabled>PWA installieren</button>
+
+        <div id="pwaStatus" class="status info" style="margin-top: 1rem;">
+            Status: <span id="pwaStatusText">Nicht geprüft</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🔧 Service Worker</h2>
+        <p>Status des Service Workers:</p>
+
+        <button id="checkSW">Service Worker prüfen</button>
+        <button id="updateSW" disabled>Service Worker aktualisieren</button>
+
+        <div id="swStatus" class="status info" style="margin-top: 1rem;">
+            Status: <span id="swStatusText">Nicht geprüft</span>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+
+        // Notification Permission
+        document.getElementById('requestPermission').addEventListener('click', async () => {
+            const permission = await Notification.requestPermission();
+            updatePermissionStatus(permission);
+
+            if (permission === 'granted') {
+                document.getElementById('testNotification').disabled = false;
+                document.getElementById('testCheapStation').disabled = false;
+            }
+        });
+
+        document.getElementById('testNotification').addEventListener('click', () => {
+            new Notification('🔔 Test-Benachrichtigung', {
+                body: 'Dies ist eine Test-Benachrichtigung von L8teFuel!',
+                icon: '/icons/icon-512.png',
+                badge: '/icons/icon-192.png',
+                vibrate: [200, 100, 200]
+            });
+        });
+
+        document.getElementById('testCheapStation').addEventListener('click', () => {
+            new Notification('⛽ Günstiger Sprit gefunden!', {
+                body: 'Shell - Hauptstraße 123\n1.45 € • 2.3 km entfernt',
+                icon: '/icons/icon-512.png',
+                badge: '/icons/icon-192.png',
+                vibrate: [200, 100, 200],
+                tag: 'fuel-alert',
+                requireInteraction: true
+            });
+        });
+
+        function updatePermissionStatus(permission) {
+            const statusEl = document.getElementById('permissionStatus');
+            const textEl = document.getElementById('permStatus');
+
+            textEl.textContent = permission;
+
+            if (permission === 'granted') {
+                statusEl.className = 'status success';
+            } else if (permission === 'denied') {
+                statusEl.className = 'status error';
+            } else {
+                statusEl.className = 'status info';
+            }
+        }
+
+        // PWA Installation
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPWA').disabled = false;
+            document.getElementById('pwaStatusText').textContent = 'Installierbar';
+            document.getElementById('pwaStatus').className = 'status success';
+        });
+
+        document.getElementById('checkPWA').addEventListener('click', () => {
+            const statusEl = document.getElementById('pwaStatus');
+            const textEl = document.getElementById('pwaStatusText');
+
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                textEl.textContent = 'Bereits installiert (Standalone-Modus)';
+                statusEl.className = 'status success';
+            } else if (deferredPrompt) {
+                textEl.textContent = 'Installierbar';
+                statusEl.className = 'status success';
+            } else {
+                textEl.textContent = 'Nicht installierbar oder bereits installiert';
+                statusEl.className = 'status info';
+            }
+        });
+
+        document.getElementById('installPWA').addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+
+            if (outcome === 'accepted') {
+                document.getElementById('pwaStatusText').textContent = 'Installation akzeptiert';
+                document.getElementById('pwaStatus').className = 'status success';
+            } else {
+                document.getElementById('pwaStatusText').textContent = 'Installation abgelehnt';
+                document.getElementById('pwaStatus').className = 'status error';
+            }
+
+            deferredPrompt = null;
+            document.getElementById('installPWA').disabled = true;
+        });
+
+        // Service Worker
+        document.getElementById('checkSW').addEventListener('click', async () => {
+            const statusEl = document.getElementById('swStatus');
+            const textEl = document.getElementById('swStatusText');
+
+            if ('serviceWorker' in navigator) {
+                const registration = await navigator.serviceWorker.getRegistration();
+
+                if (registration) {
+                    textEl.textContent = `Registriert (${registration.active ? 'Aktiv' : 'Inaktiv'})`;
+                    statusEl.className = 'status success';
+                    document.getElementById('updateSW').disabled = false;
+                } else {
+                    textEl.textContent = 'Nicht registriert';
+                    statusEl.className = 'status error';
+                }
+            } else {
+                textEl.textContent = 'Nicht unterstützt';
+                statusEl.className = 'status error';
+            }
+        });
+
+        document.getElementById('updateSW').addEventListener('click', async () => {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                await registration.update();
+                document.getElementById('swStatusText').textContent = 'Aktualisiert';
+                document.getElementById('swStatus').className = 'status success';
+            }
+        });
+
+        // Initial check
+        if (Notification.permission !== 'default') {
+            updatePermissionStatus(Notification.permission);
+            if (Notification.permission === 'granted') {
+                document.getElementById('testNotification').disabled = false;
+                document.getElementById('testCheapStation').disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

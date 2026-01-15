@@ -17,9 +17,122 @@ if (token) {
     initApp();
 }
 
+// Service Worker Registration & Notification Setup
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
-        .then(() => console.log('Service Worker Registered'));
+        .then(registration => {
+            console.log('✅ Service Worker Registered');
+
+            // Request notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                // We'll request permission when user starts tracking
+                console.log('📱 Notification permission not yet requested');
+            }
+        })
+        .catch(err => console.error('❌ Service Worker registration failed:', err));
+}
+
+// Notification permission state
+let notificationPermissionGranted = false;
+
+// Request notification permission
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.warn('⚠️ This browser does not support notifications');
+        return false;
+    }
+
+    if (Notification.permission === 'granted') {
+        notificationPermissionGranted = true;
+        return true;
+    }
+
+    if (Notification.permission === 'denied') {
+        console.warn('⚠️ Notification permission denied');
+        return false;
+    }
+
+    try {
+        const permission = await Notification.requestPermission();
+        notificationPermissionGranted = (permission === 'granted');
+
+        if (notificationPermissionGranted) {
+            console.log('✅ Notification permission granted');
+            showLocalNotification(
+                '🔔 Benachrichtigungen aktiviert!',
+                'Du wirst jetzt benachrichtigt, wenn günstige Tankstellen in deiner Nähe sind.'
+            );
+            updateNotificationStatusUI(true);
+        } else {
+            console.warn('⚠️ Notification permission denied by user');
+            updateNotificationStatusUI(false);
+        }
+
+        return notificationPermissionGranted;
+    } catch (err) {
+        console.error('❌ Error requesting notification permission:', err);
+        return false;
+    }
+}
+
+// Show local notification (without service worker)
+function showLocalNotification(title, body, data = {}) {
+    if (!notificationPermissionGranted) return;
+
+    try {
+        const notification = new Notification(title, {
+            body: body,
+            icon: '/icons/icon-512.png',
+            badge: '/icons/icon-192.png',
+            vibrate: [200, 100, 200],
+            tag: 'fuel-alert',
+            data: data
+        });
+
+        notification.onclick = () => {
+            window.focus();
+            notification.close();
+            if (data.action === 'open-station' && data.stationIndex !== undefined) {
+                window.openStationDetails(data.stationIndex);
+            }
+        };
+    } catch (err) {
+        console.error('❌ Error showing notification:', err);
+    }
+}
+
+// Track last notification to prevent spam
+let lastNotificationTime = 0;
+let notifiedStations = new Set();
+
+// Check if we should notify about this station
+function shouldNotifyForStation(stationId, price) {
+    const now = Date.now();
+    const timeSinceLastNotification = now - lastNotificationTime;
+
+    // Don't spam notifications - wait at least 5 minutes
+    if (timeSinceLastNotification < 5 * 60 * 1000) {
+        return false;
+    }
+
+    // Don't notify about the same station twice in 30 minutes
+    if (notifiedStations.has(stationId)) {
+        return false;
+    }
+
+    return true;
+}
+
+// Update notification status in UI
+function updateNotificationStatusUI(enabled) {
+    const statusEl = document.getElementById('notificationStatus');
+    if (statusEl) {
+        if (enabled) {
+            statusEl.classList.remove('hidden');
+        } else {
+            statusEl.classList.add('hidden');
+        }
+    }
 }
 
 // --- Auth Functions ---
@@ -119,12 +232,22 @@ window.toggleTracking = async (active, skipApiUpdate = false) => {
     const inactiveUI = document.getElementById('inactive-ui');
     const activeUI = document.getElementById('active-ui');
 
+
     // Update UI
     if (isTracking) {
         inactiveUI.classList.add('hidden');
         activeUI.classList.remove('hidden');
         initHomeMap();
         setTimeout(() => mapHome.invalidateSize(), 100);
+
+        // Request notification permission when starting tracking
+        if (Notification.permission !== 'granted') {
+            await requestNotificationPermission();
+        } else {
+            notificationPermissionGranted = true;
+            updateNotificationStatusUI(true);
+        }
+
         startTracking(); // Start Geolocation
     } else {
         inactiveUI.classList.remove('hidden');
@@ -321,10 +444,46 @@ async function checkPrices() {
 
             updateStationMarkers();
 
-            // Notification logic (simple: notify on nearest cheapest)
+            // 🔔 Notification logic - notify when cheap stations found
             const cheapStations = stations.filter(s => s.price <= window.targetPrice);
-            if (cheapStations.length > 0 && Notification.permission === 'granted') {
-                // Logic to prevent spamming notifications can be added here
+
+            if (cheapStations.length > 0 && notificationPermissionGranted) {
+                // Sort by price to get the cheapest
+                cheapStations.sort((a, b) => a.price - b.price);
+                const cheapest = cheapStations[0];
+
+                // Create unique ID for this station
+                const stationId = `${cheapest.name}-${cheapest.price}`;
+
+                // Check if we should notify
+                if (shouldNotifyForStation(stationId, cheapest.price)) {
+                    console.log('🔔 Sending notification for cheap station:', cheapest.name);
+
+                    // Update tracking
+                    lastNotificationTime = Date.now();
+                    notifiedStations.add(stationId);
+
+                    // Clear old notifications after 30 minutes
+                    setTimeout(() => {
+                        notifiedStations.delete(stationId);
+                    }, 30 * 60 * 1000);
+
+                    // Find station index for click handler
+                    const stationIndex = stations.indexOf(cheapest);
+
+                    // Show notification
+                    showLocalNotification(
+                        `⛽ Günstiger Sprit gefunden!`,
+                        `${cheapest.name}\n${cheapest.price.toFixed(2)} € • ${cheapest.distance.toFixed(1)} km entfernt`,
+                        {
+                            action: 'open-station',
+                            stationIndex: stationIndex,
+                            station: cheapest
+                        }
+                    );
+
+                    console.log(`   💰 ${cheapest.name}: ${cheapest.price.toFixed(2)} € (${cheapest.distance.toFixed(1)} km)`);
+                }
             }
         } else if (data.status === 'inactive') {
             console.log('⏸️  Tracking is inactive or no location data available');
