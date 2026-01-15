@@ -24,21 +24,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initial Admin Creation
+# Initial Admin Creation & Database Setup
 @app.on_event("startup")
 def create_initial_admin():
-    db = next(database.get_db())
-    admin = db.query(models.User).filter(models.User.username == "admin").first()
-    if not admin:
-        hashed_pw = auth.get_password_hash("admin123")
-        new_admin = models.User(username="admin", hashed_password=hashed_pw, is_admin=True)
-        db.add(new_admin)
-        db.commit()
-        db.refresh(new_admin)
-        # Create default settings
-        settings = models.UserSettings(user_id=new_admin.id)
-        db.add(settings)
-        db.commit()
+    """Erstellt Datenbank-Tabellen und Admin-User beim Server-Start"""
+    try:
+        # 1. Erstelle alle Tabellen falls sie nicht existieren
+        print("🔄 Erstelle Datenbank-Tabellen...")
+        models.Base.metadata.create_all(bind=engine)
+        print("✅ Datenbank-Tabellen erstellt/überprüft")
+        
+        # 2. Erstelle Admin-User falls er nicht existiert
+        db = next(database.get_db())
+        admin = db.query(models.User).filter(models.User.username == "admin").first()
+        
+        if not admin:
+            print("🔄 Erstelle Admin-User...")
+            hashed_pw = auth.get_password_hash("admin123")
+            new_admin = models.User(username="admin", hashed_password=hashed_pw, is_admin=True)
+            db.add(new_admin)
+            db.commit()
+            db.refresh(new_admin)
+            
+            # Create default settings
+            settings = models.UserSettings(user_id=new_admin.id)
+            db.add(settings)
+            db.commit()
+            
+            print("✅ Admin-User erstellt: admin / admin123")
+        else:
+            print("✅ Admin-User existiert bereits")
+            
+    except Exception as e:
+        print(f"❌ Fehler beim Startup: {e}")
+        raise
 
 # --- Auth Endpoints ---
 
