@@ -333,5 +333,291 @@ async def search_stations(
         print(f"❌ Error searching stations: {e}")
         return {"status": "error", "stations": [], "error": str(e)}
 
+# --- Favorite Locations Endpoints ---
+
+@app.get("/favorite-locations")
+async def get_favorite_locations(current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    """Get all favorite locations for current user"""
+    locations = db.query(models.FavoriteLocation).filter(
+        models.FavoriteLocation.user_id == current_user.id
+    ).order_by(models.FavoriteLocation.is_home.desc(), models.FavoriteLocation.created_at.desc()).all()
+    
+    return [{
+        "id": loc.id,
+        "name": loc.name,
+        "city": loc.city,
+        "latitude": loc.latitude,
+        "longitude": loc.longitude,
+        "is_home": loc.is_home,
+        "created_at": loc.created_at.isoformat()
+    } for loc in locations]
+
+@app.post("/favorite-locations")
+async def create_favorite_location(
+    name: str,
+    city: str,
+    latitude: float,
+    longitude: float,
+    is_home: bool = False,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new favorite location"""
+    # If marking as home, unmark all other homes
+    if is_home:
+        db.query(models.FavoriteLocation).filter(
+            models.FavoriteLocation.user_id == current_user.id,
+            models.FavoriteLocation.is_home == True
+        ).update({"is_home": False})
+    
+    location = models.FavoriteLocation(
+        user_id=current_user.id,
+        name=name,
+        city=city,
+        latitude=latitude,
+        longitude=longitude,
+        is_home=is_home
+    )
+    db.add(location)
+    db.commit()
+    db.refresh(location)
+    
+    return {"id": location.id, "message": "Location created"}
+
+@app.delete("/favorite-locations/{location_id}")
+async def delete_favorite_location(
+    location_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a favorite location"""
+    location = db.query(models.FavoriteLocation).filter(
+        models.FavoriteLocation.id == location_id,
+        models.FavoriteLocation.user_id == current_user.id
+    ).first()
+    
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+    
+    db.delete(location)
+    db.commit()
+    return {"message": "Location deleted"}
+
+@app.get("/favorite-locations/{location_id}/prices")
+async def get_favorite_location_prices(
+    location_id: int,
+    fuel_type: str = "diesel",
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get current prices for a favorite location"""
+    location = db.query(models.FavoriteLocation).filter(
+        models.FavoriteLocation.id == location_id,
+        models.FavoriteLocation.user_id == current_user.id
+    ).first()
+    
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+    
+    # Use same logic as search-stations
+    api_key = os.getenv("TANKERKOENIG_API_KEY")
+    radius = 5.0  # Default 5km for favorite locations
+    
+    if not api_key or api_key.startswith("0000"):
+        # Mock data
+        return {
+            "location_id": location_id,
+            "city": location.city,
+            "cheapest_price": 1.55,
+            "average_price": 1.62,
+            "station_count": 5,
+            "is_mock": True
+        }
+    
+    try:
+        url = "https://creativecommons.tankerkoenig.de/json/list.php"
+        params = {
+            "lat": location.latitude,
+            "lng": location.longitude,
+            "rad": radius,
+            "sort": "price",
+            "type": "all",
+            "apikey": api_key
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if not data.get("ok"):
+            return {"location_id": location_id, "city": location.city, "error": data.get("message")}
+        
+        stations = data.get("stations", [])
+        prices = []
+        
+        for s in stations:
+            if not s.get("isOpen", True):
+                continue
+            price = s.get(fuel_type)
+            if price:
+                prices.append(price)
+        
+        if not prices:
+            return {"location_id": location_id, "city": location.city, "station_count": 0}
+        
+        return {
+            "location_id": location_id,
+            "city": location.city,
+            "cheapest_price": min(prices),
+            "average_price": sum(prices) / len(prices),
+            "station_count": len(prices),
+            "is_mock": False
+        }
+        
+    except Exception as e:
+        print(f"Error fetching prices for location: {e}")
+        return {"location_id": location_id, "city": location.city, "error": str(e)}
+
+# --- Fuel Log Endpoints (Fahrtenbuch) ---
+
+@app.get("/fuel-logs")
+async def get_fuel_logs(
+    limit: int = 50,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all fuel logs for current user"""
+    logs = db.query(models.FuelLog).filter(
+        models.FuelLog.user_id == current_user.id
+    ).order_by(models.FuelLog.date.desc()).limit(limit).all()
+    
+    return [{
+        "id": log.id,
+        "station_name": log.station_name,
+        "city": log.city,
+        "liters": log.liters,
+        "price_per_liter": log.price_per_liter,
+        "total_price": log.total_price,
+        "fuel_type": log.fuel_type,
+        "odometer": log.odometer,
+        "kilometers_driven": log.kilometers_driven,
+        "consumption": log.consumption,
+        "date": log.date.isoformat(),
+        "notes": log.notes
+    } for log in logs]
+
+@app.post("/fuel-logs")
+async def create_fuel_log(
+    station_name: str,
+    liters: float,
+    price_per_liter: float,
+    fuel_type: str = "diesel",
+    city: Optional[str] = None,
+    odometer: Optional[float] = None,
+    notes: Optional[str] = None,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new fuel log entry"""
+    total_price = liters * price_per_liter
+    
+    # Calculate consumption if odometer provided
+    kilometers_driven = None
+    consumption = None
+    
+    if odometer:
+        # Get last fuel log
+        last_log = db.query(models.FuelLog).filter(
+            models.FuelLog.user_id == current_user.id,
+            models.FuelLog.odometer != None
+        ).order_by(models.FuelLog.date.desc()).first()
+        
+        if last_log and last_log.odometer:
+            kilometers_driven = odometer - last_log.odometer
+            if kilometers_driven > 0:
+                consumption = (liters / kilometers_driven) * 100
+    
+    log = models.FuelLog(
+        user_id=current_user.id,
+        station_name=station_name,
+        city=city,
+        liters=liters,
+        price_per_liter=price_per_liter,
+        total_price=total_price,
+        fuel_type=fuel_type,
+        odometer=odometer,
+        kilometers_driven=kilometers_driven,
+        consumption=consumption,
+        notes=notes
+    )
+    
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    
+    return {"id": log.id, "message": "Fuel log created", "consumption": consumption}
+
+@app.delete("/fuel-logs/{log_id}")
+async def delete_fuel_log(
+    log_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a fuel log"""
+    log = db.query(models.FuelLog).filter(
+        models.FuelLog.id == log_id,
+        models.FuelLog.user_id == current_user.id
+    ).first()
+    
+    if not log:
+        raise HTTPException(status_code=404, detail="Fuel log not found")
+    
+    db.delete(log)
+    db.commit()
+    return {"message": "Fuel log deleted"}
+
+@app.get("/fuel-logs/statistics")
+async def get_fuel_statistics(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get fuel consumption statistics"""
+    logs = db.query(models.FuelLog).filter(
+        models.FuelLog.user_id == current_user.id
+    ).all()
+    
+    if not logs:
+        return {"total_logs": 0}
+    
+    total_liters = sum(log.liters for log in logs)
+    total_cost = sum(log.total_price for log in logs)
+    avg_price = sum(log.price_per_liter for log in logs) / len(logs)
+    
+    consumptions = [log.consumption for log in logs if log.consumption]
+    avg_consumption = sum(consumptions) / len(consumptions) if consumptions else None
+    
+    total_km = sum(log.kilometers_driven for log in logs if log.kilometers_driven)
+    
+    return {
+        "total_logs": len(logs),
+        "total_liters": round(total_liters, 2),
+        "total_cost": round(total_cost, 2),
+        "average_price_per_liter": round(avg_price, 3),
+        "average_consumption": round(avg_consumption, 2) if avg_consumption else None,
+        "total_kilometers": round(total_km, 1) if total_km else None
+    }
+
+# --- Settings Update for Heatmap ---
+
+@app.put("/me/settings/heatmap")
+async def toggle_heatmap(
+    show_heatmap: bool,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Toggle heatmap display"""
+    current_user.settings.show_heatmap = show_heatmap
+    db.commit()
+    return {"show_heatmap": show_heatmap}
+
 # Static Files
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")

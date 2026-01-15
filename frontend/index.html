@@ -435,6 +435,35 @@
         </div>
     </section>
 
+    <!-- VIEW: FAVORITEN -->
+    <section id="view-favorites" class="view-section p-4 md:p-6 pb-32 min-h-screen bg-[#0f172a]">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl md:text-3xl font-black italic uppercase text-yellow-400">⭐ Favoriten</h2>
+                <button onclick="window.showAddFavoriteModal()"
+                    class="bg-yellow-400 text-slate-900 font-black py-2 px-4 rounded-xl text-sm hover:bg-yellow-300 transition active:scale-95">
+                    <i class="fas fa-plus mr-2"></i>Neu
+                </button>
+            </div>
+            <div id="favoritesList" class="space-y-3"></div>
+        </div>
+    </section>
+
+    <!-- VIEW: FAHRTENBUCH -->
+    <section id="view-fuellog" class="view-section p-4 md:p-6 pb-32 min-h-screen bg-[#0f172a]">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl md:text-3xl font-black italic uppercase text-yellow-400">📖 Fahrtenbuch</h2>
+                <button onclick="window.showAddFuelLogModal()"
+                    class="bg-yellow-400 text-slate-900 font-black py-2 px-4 rounded-xl text-sm hover:bg-yellow-300 transition active:scale-95">
+                    <i class="fas fa-plus mr-2"></i>Neu
+                </button>
+            </div>
+            <div id="fuelStats" class="glass rounded-2xl p-4 mb-6 border border-white/10"></div>
+            <div id="fuelLogList" class="space-y-3"></div>
+        </div>
+    </section>
+
     <!-- VIEW: SETUP -->
     <section id="view-settings" class="view-section p-6 pb-32 md:pt-12 min-h-screen bg-[#0f172a]">
         <div class="max-w-xl mx-auto">
@@ -541,6 +570,71 @@
         </div>
     </div>
 
+    <!-- Favoriten Modal -->
+    <div id="addFavoriteModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1100] hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl p-6 max-w-md w-full border border-white/10">
+            <h3 class="text-xl font-black text-yellow-400 mb-4">Neuer Favorit</h3>
+            <div class="space-y-3">
+                <input type="text" id="favName" placeholder="Name"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                <input type="text" id="favCity" placeholder="Stadt"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" step="0.0001" id="favLat" placeholder="Lat"
+                        class="bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                    <input type="number" step="0.0001" id="favLng" placeholder="Lng"
+                        class="bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                </div>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="favIsHome"
+                        class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-yellow-400">
+                    <span class="text-white text-sm">Wohnort</span>
+                </label>
+                <div class="flex space-x-2 pt-2">
+                    <button onclick="window.closeAddFavoriteModal()"
+                        class="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-sm">Abbrechen</button>
+                    <button onclick="window.saveFavorite()"
+                        class="flex-1 bg-yellow-400 text-slate-900 font-bold py-2 rounded-xl text-sm">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fahrtenbuch Modal -->
+    <div id="addFuelLogModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1100] hidden flex items-center justify-center p-4">
+        <div class="glass rounded-3xl p-6 max-w-md w-full border border-white/10">
+            <h3 class="text-xl font-black text-yellow-400 mb-4">Tankfüllung</h3>
+            <div class="space-y-3">
+                <input type="text" id="logStation" placeholder="Tankstelle"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                <input type="text" id="logCity" placeholder="Stadt (optional)"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" step="0.01" id="logLiters" placeholder="Liter"
+                        class="bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                    <input type="number" step="0.001" id="logPrice" placeholder="€/L"
+                        class="bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                </div>
+                <input type="number" step="1" id="logOdometer" placeholder="Kilometerstand (optional)"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                <select id="logFuelType"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-yellow-400">
+                    <option value="diesel">Diesel</option>
+                    <option value="e5">Super E5</option>
+                    <option value="e10">Super E10</option>
+                </select>
+                <div class="flex space-x-2 pt-2">
+                    <button onclick="window.closeAddFuelLogModal()"
+                        class="flex-1 bg-slate-800 text-white font-bold py-2 rounded-xl text-sm">Abbrechen</button>
+                    <button onclick="window.saveFuelLog()"
+                        class="flex-1 bg-yellow-400 text-slate-900 font-bold py-2 rounded-xl text-sm">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- RESPONSIVE NAVBAR -->
     <nav id="navbar"
         class="hidden fixed bottom-8 left-8 right-8 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:left-8 md:right-auto md:w-20 md:flex-col md:h-auto md:py-8 md:space-y-8 glass rounded-[2.5rem] p-3 flex justify-around items-center z-[100] border border-white/5 shadow-2xl transition-all duration-300">
@@ -554,6 +648,16 @@
             <i class="fas fa-list-ul text-lg group-hover:scale-110 transition"></i>
             <span class="text-[9px] mt-1 font-black uppercase tracking-tighter md:hidden">Suche</span>
         </button>
+        <button onclick="window.switchView('favorites')" id="nav-favorites"
+            class="flex-1 md:flex-none w-full flex flex-col items-center text-gray-500 group p-2 rounded-xl transition hover:text-white">
+            <i class="fas fa-star text-lg group-hover:scale-110 transition"></i>
+            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter md:hidden">Orte</span>
+        </button>
+        <button onclick="window.switchView('fuellog')" id="nav-fuellog"
+            class="flex-1 md:flex-none w-full flex flex-col items-center text-gray-500 group p-2 rounded-xl transition hover:text-white">
+            <i class="fas fa-book text-lg group-hover:scale-110 transition"></i>
+            <span class="text-[9px] mt-1 font-black uppercase tracking-tighter md:hidden">Buch</span>
+        </button>
         <button onclick="window.switchView('settings')" id="nav-settings"
             class="flex-1 md:flex-none w-full flex flex-col items-center text-gray-500 group p-2 rounded-xl transition hover:text-white">
             <i class="fas fa-user-gear text-lg group-hover:scale-110 transition"></i>
@@ -563,6 +667,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="app.js"></script>
+    <script src="features.js"></script>
 </body>
 
 </html>

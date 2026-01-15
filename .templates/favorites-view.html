@@ -1,0 +1,49 @@
+<!-- Favoriten-Orte View - Kompakte Version -->
+<section id="view-favorites" class="view-section p-4 md:p-6 pb-32 md:pt-12 min-h-screen bg-[#0f172a]">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-yellow-400">⭐ Favoriten
+            </h2>
+            <button onclick="window.showAddFavoriteModal()"
+                class="bg-yellow-400 text-slate-900 font-black py-2 px-4 rounded-xl text-sm hover:bg-yellow-300 transition active:scale-95">
+                <i class="fas fa-plus mr-2"></i>Hinzufügen
+            </button>
+        </div>
+
+        <!-- Favoriten Liste -->
+        <div id="favoritesList" class="space-y-4">
+            <div class="text-center text-gray-500 py-10">Lade Favoriten...</div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Favorite Modal -->
+<div id="addFavoriteModal"
+    class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1100] hidden flex items-center justify-center p-4">
+    <div class="glass rounded-3xl p-6 md:p-8 max-w-md w-full border border-white/10">
+        <h3 class="text-xl font-black text-yellow-400 mb-6">Neuer Favorit</h3>
+        <div class="space-y-4">
+            <input type="text" id="favName" placeholder="Name (z.B. Wohnort, Arbeit)"
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 transition">
+            <input type="text" id="favCity" placeholder="Stadt"
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 transition">
+            <div class="grid grid-cols-2 gap-3">
+                <input type="number" step="0.0001" id="favLat" placeholder="Latitude"
+                    class="bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 transition">
+                <input type="number" step="0.0001" id="favLng" placeholder="Longitude"
+                    class="bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-yellow-400 transition">
+            </div>
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" id="favIsHome"
+                    class="w-5 h-5 rounded bg-slate-800 border-slate-700 text-yellow-400 focus:ring-yellow-400">
+                <span class="text-white text-sm">Als Wohnort markieren</span>
+            </label>
+            <div class="flex space-x-3 pt-4">
+                <button onclick="window.closeAddFavoriteModal()"
+                    class="flex-1 bg-slate-800 text-white font-black py-3 rounded-xl hover:bg-slate-700 transition">Abbrechen</button>
+                <button onclick="window.saveFavorite()"
+                    class="flex-1 bg-yellow-400 text-slate-900 font-black py-3 rounded-xl hover:bg-yellow-300 transition">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
