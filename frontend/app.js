@@ -1,5 +1,6 @@
-// App State
+// App State & Security
 let token = localStorage.getItem('token');
+let tokenExpiry = localStorage.getItem('tokenExpiry');
 let user = null;
 let watchId = null;
 let mapHome, userMarker, radiusCircle;
@@ -7,6 +8,42 @@ let stationMarkers = [];
 let isTracking = false;
 let currentFuelType = 'diesel';
 let stations = []; // Replaces mockStations
+
+// Token Management
+function saveToken(newToken) {
+    token = newToken;
+    localStorage.setItem('token', newToken);
+
+    // JWT tokens are valid for 30 days (set in backend)
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 30);
+    localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+
+    console.log('✅ Token saved, expires:', expiryDate.toLocaleDateString());
+}
+
+function clearToken() {
+    token = null;
+    user = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('tokenExpiry');
+    console.log('🔒 Token cleared');
+}
+
+function isTokenExpired() {
+    if (!tokenExpiry) return true;
+
+    const expiry = new Date(tokenExpiry);
+    const now = new Date();
+
+    return now > expiry;
+}
+
+// Check token validity on load
+if (token && isTokenExpired()) {
+    console.warn('⚠️ Token expired, clearing...');
+    clearToken();
+}
 
 // UI References are grabbed dynamically inside functions or event listeners 
 // to ensure DOM is ready, though app.js is at end of body so it should be fine.
@@ -141,39 +178,94 @@ document.getElementById('login-btn').addEventListener('click', handleLogin);
 document.getElementById('logout-btn').addEventListener('click', handleLogout);
 
 async function handleLogin() {
-    const username = document.getElementById('username').value;
+    const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
     const errorEl = document.getElementById('login-error');
+    const loginBtn = document.getElementById('login-btn');
+
+    // Validation
+    if (!username || !password) {
+        errorEl.textContent = 'Bitte Benutzername und Passwort eingeben';
+        return;
+    }
+
+    // Disable button during login
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Anmelden...';
+    errorEl.textContent = '';
 
     const formData = new FormData();
     formData.append('username', username);
     formData.append('password', password);
 
     try {
-        const res = await fetch('/token', { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('Login fehlgeschlagen');
+        const res = await fetch('/token', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'  // Include cookies if needed
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Login fehlgeschlagen');
+        }
+
         const data = await res.json();
-        token = data.access_token;
-        localStorage.setItem('token', token);
+
+        // Save token securely
+        saveToken(data.access_token);
+
+        console.log('✅ Login successful');
         errorEl.textContent = '';
-        initApp();
+
+        // Initialize app
+        await initApp();
+
     } catch (err) {
-        errorEl.textContent = err.message;
+        console.error('❌ Login error:', err);
+        errorEl.textContent = err.message || 'Login fehlgeschlagen';
+        clearToken();
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'LOGIN';
     }
 }
 
 function handleLogout() {
-    localStorage.removeItem('token');
+    console.log('🔒 Logging out...');
+
+    // Stop tracking if active
+    if (isTracking) {
+        stopTracking();
+    }
+
+    // Clear all session data
+    clearToken();
+
+    // Clear notification permissions state
+    notificationPermissionGranted = false;
+
+    // Reload to login screen
     location.reload();
 }
 
 async function initApp() {
     try {
+        console.log('🔄 Initializing app...');
+
         const res = await fetch('/me', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('Session abgelaufen');
+
+        if (!res.ok) {
+            if (res.status === 401) {
+                throw new Error('Session abgelaufen - bitte neu anmelden');
+            }
+            throw new Error('Fehler beim Laden der Benutzerdaten');
+        }
+
         user = await res.json();
+        console.log('✅ User loaded:', user.username);
 
         // Switch to Dashboard
         document.getElementById('view-login').classList.add('hidden');
@@ -191,6 +283,7 @@ async function initApp() {
 
             // Restore active state
             if (user.settings.is_active) {
+                console.log('🔄 Restoring active tracking state...');
                 // We need to visually toggle on without triggering the API call loop immediately
                 window.toggleTracking(true, true);
             }
@@ -218,10 +311,25 @@ async function initApp() {
         } catch (debugErr) {
             console.error('Debug info fetch failed:', debugErr);
         }
+
+        console.log('✅ App initialized successfully');
+
     } catch (err) {
-        console.error(err);
-        localStorage.removeItem('token');
+        console.error('❌ Init error:', err);
+
+        // Clear invalid token
+        clearToken();
+
+        // Show login screen
         document.getElementById('view-login').classList.remove('hidden');
+        document.getElementById('view-dashboard').classList.remove('view-active');
+        document.getElementById('navbar').classList.add('hidden');
+
+        // Show error message
+        const loginError = document.getElementById('login-error');
+        if (loginError) {
+            loginError.textContent = err.message || 'Session abgelaufen - bitte neu anmelden';
+        }
     }
 }
 
@@ -813,29 +921,29 @@ async function performExploreSearch() {
             if (s.price > 2.00) priceColor = 'text-red-400';
 
             return `
-            <div class="glass p-5 rounded-3xl hover:border-yellow-400/30 border border-white/10 transition-all duration-300 active:scale-95 cursor-pointer group" 
+            <div class="glass p-4 md:p-5 rounded-2xl md:rounded-3xl hover:border-yellow-400/30 border border-white/10 transition-all duration-300 active:scale-95 cursor-pointer group" 
                  onclick="window.openExploreStationDetails(${originalIdx})">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="flex items-start flex-1">
-                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center mr-3 shadow-lg group-hover:scale-110 transition-transform">
-                            <i class="fas fa-gas-pump text-slate-900 text-lg"></i>
+                <div class="flex justify-between items-start mb-3 md:mb-4">
+                    <div class="flex items-start flex-1 min-w-0">
+                        <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center mr-2 md:mr-3 shadow-lg group-hover:scale-110 transition-transform flex-shrink-0">
+                            <i class="fas fa-gas-pump text-slate-900 text-sm md:text-lg"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="font-black text-sm text-white mb-1 truncate">${s.name}</div>
-                            <div class="text-[9px] text-gray-500 font-black uppercase tracking-wider flex items-center">
+                            <div class="font-black text-xs md:text-sm text-white mb-1 truncate pr-2">${s.name}</div>
+                            <div class="text-[8px] md:text-[9px] text-gray-500 font-black uppercase tracking-wider flex items-center flex-wrap">
                                 <i class="fas fa-location-dot mr-1"></i>
-                                ${s.distance.toFixed(1)} km
-                                <span class="mx-2">•</span>
+                                <span>${s.distance.toFixed(1)} km</span>
+                                <span class="mx-1 md:mx-2">•</span>
                                 <span class="text-green-500"><i class="fas fa-clock mr-1"></i>Geöffnet</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="flex justify-between items-end pt-3 border-t border-white/5">
-                    <div class="text-[8px] text-gray-500 uppercase font-black tracking-widest">
+                <div class="flex justify-between items-end pt-2 md:pt-3 border-t border-white/5">
+                    <div class="text-[7px] md:text-[8px] text-gray-500 uppercase font-black tracking-widest">
                         ${s.fuel_type === 'diesel' ? 'Diesel' : s.fuel_type === 'e5' ? 'Super E5' : 'Super E10'}
                     </div>
-                    <div class="text-2xl font-black ${priceColor}">
+                    <div class="text-xl md:text-2xl font-black ${priceColor}">
                         ${s.price.toFixed(2)} €
                     </div>
                 </div>

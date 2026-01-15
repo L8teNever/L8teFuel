@@ -205,12 +205,31 @@
         #filterSection {
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.3s ease-out, margin 0.3s ease-out;
+            opacity: 0;
+            padding: 0;
+            margin: 0;
+            border: none;
+            transition: max-height 0.4s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
         }
 
         #filterSection.open {
-            max-height: 500px;
+            max-height: 800px;
+            opacity: 1;
+            padding: 1.25rem;
             margin-top: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Mobile Optimierungen */
+        @media (max-width: 640px) {
+            #filterSection.open {
+                max-height: 1000px;
+            }
+
+            .explore-fuel-btn {
+                font-size: 9px !important;
+                padding: 0.5rem !important;
+            }
         }
     </style>
 </head>
@@ -314,50 +333,52 @@
     </main>
 
     <!-- VIEW: EXPLORE -->
-    <section id="view-explore" class="view-section p-6 pb-32 md:pt-12 min-h-screen bg-[#0f172a]">
+    <section id="view-explore" class="view-section p-4 md:p-6 pb-32 md:pt-12 min-h-screen bg-[#0f172a]">
         <div class="max-w-6xl mx-auto">
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-yellow-400">Tankstellen</h2>
-                <div id="exploreStatus" class="text-xs font-black uppercase tracking-widest text-gray-500">
-                    <span id="exploreCount">0</span> Stationen
+            <div class="flex items-center justify-between mb-4 md:mb-6">
+                <h2 class="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-yellow-400">
+                    Tankstellen</h2>
+                <div id="exploreStatus"
+                    class="text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500">
+                    <span id="exploreCount">0</span> <span class="hidden sm:inline">Stationen</span>
                 </div>
             </div>
 
             <!-- Search & Filter Controls -->
-            <div class="mb-8 max-w-2xl">
-                <div class="flex space-x-3 mb-4">
+            <div class="mb-6 md:mb-8">
+                <div class="flex space-x-2 md:space-x-3 mb-0">
                     <div
                         class="glass flex-1 p-2 rounded-2xl flex items-center border border-white/10 focus-within:border-yellow-400/50 transition">
-                        <i class="fas fa-search ml-3 text-gray-500"></i>
-                        <input type="text" id="searchInput" placeholder="Station oder Marke suchen..."
-                            class="flex-1 bg-transparent border-none p-3 text-sm outline-none text-white placeholder-gray-600">
+                        <i class="fas fa-search ml-2 md:ml-3 text-gray-500 text-sm"></i>
+                        <input type="text" id="searchInput" placeholder="Station suchen..."
+                            class="flex-1 bg-transparent border-none p-2 md:p-3 text-xs md:text-sm outline-none text-white placeholder-gray-600">
                     </div>
                     <button id="filterToggleBtn" onclick="window.toggleFilters()"
-                        class="glass w-14 rounded-2xl flex items-center justify-center text-yellow-400 border border-white/10 hover:bg-white/5 transition">
-                        <i class="fas fa-filter"></i>
+                        class="glass w-12 md:w-14 rounded-2xl flex items-center justify-center text-yellow-400 border border-white/10 hover:bg-white/5 transition active:scale-95">
+                        <i class="fas fa-filter text-sm md:text-base"></i>
                     </button>
                 </div>
 
                 <!-- Filter Section -->
-                <div id="filterSection" class="glass rounded-3xl p-5 border border-white/10">
-                    <div class="space-y-6">
+                <div id="filterSection" class="glass rounded-3xl">
+                    <div class="space-y-4 md:space-y-6">
                         <!-- Fuel Type Selector -->
                         <div>
                             <div
-                                class="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-3 flex items-center">
+                                class="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2 md:mb-3 flex items-center">
                                 <i class="fas fa-gas-pump mr-2"></i> Kraftstoff-Typ
                             </div>
                             <div class="grid grid-cols-3 gap-2">
                                 <button id="explore-fuel-diesel"
-                                    class="explore-fuel-btn bg-slate-800 border-2 border-slate-700 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-400 explore-fuel-active transition hover:bg-yellow-400/10 active:scale-95">
+                                    class="explore-fuel-btn bg-slate-800 border-2 border-slate-700 py-2 md:py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-wider text-slate-400 explore-fuel-active transition hover:bg-yellow-400/10 active:scale-95">
                                     Diesel
                                 </button>
                                 <button id="explore-fuel-e5"
-                                    class="explore-fuel-btn bg-slate-800 border-2 border-slate-700 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-400 transition hover:bg-yellow-400/10 active:scale-95">
+                                    class="explore-fuel-btn bg-slate-800 border-2 border-slate-700 py-2 md:py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-wider text-slate-400 transition hover:bg-yellow-400/10 active:scale-95">
                                     Super E5
                                 </button>
                                 <button id="explore-fuel-e10"
-                                    class="explore-fuel-btn bg-slate-800 border-2 border-slate-700 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-400 transition hover:bg-yellow-400/10 active:scale-95">
+                                    class="explore-fuel-btn bg-slate-800 border-2 border-slate-700 py-2 md:py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-wider text-slate-400 transition hover:bg-yellow-400/10 active:scale-95">
                                     Super E10
                                 </button>
                             </div>
@@ -366,26 +387,27 @@
                         <!-- Price Filter -->
                         <div>
                             <div
-                                class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
+                                class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 md:mb-3">
                                 <span><i class="fas fa-euro-sign mr-1"></i> Max. Preis</span>
                                 <span id="filterPriceVal" class="text-yellow-400">2.50 €</span>
                             </div>
                             <input type="range" id="filterPrice" min="1.00" max="2.50" step="0.01" value="2.50"
-                                class="w-full">
+                                class="w-full h-2">
                         </div>
 
                         <!-- Distance Filter -->
                         <div>
                             <div
-                                class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
+                                class="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 md:mb-3">
                                 <span><i class="fas fa-location-dot mr-1"></i> Entfernung</span>
                                 <span id="filterDistVal" class="text-yellow-400">15 km</span>
                             </div>
-                            <input type="range" id="filterDist" min="0.5" max="25" step="0.5" value="15" class="w-full">
+                            <input type="range" id="filterDist" min="0.5" max="25" step="0.5" value="15"
+                                class="w-full h-2">
                         </div>
 
                         <!-- Open Only Toggle -->
-                        <div class="flex justify-between items-center pt-2 border-t border-white/5">
+                        <div class="flex justify-between items-center pt-2 md:pt-3 border-t border-white/5">
                             <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                                 <i class="fas fa-clock mr-1"></i> Nur geöffnete
                             </span>
@@ -401,13 +423,13 @@
             </div>
 
             <!-- Results List -->
-            <div id="exploreList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div id="exploreList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 <!-- Loading State -->
-                <div class="col-span-full flex flex-col items-center justify-center py-20">
+                <div class="col-span-full flex flex-col items-center justify-center py-16 md:py-20">
                     <div
-                        class="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4">
+                        class="w-12 h-12 md:w-16 md:h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4">
                     </div>
-                    <p class="text-gray-500 font-bold text-sm">Lade Tankstellen...</p>
+                    <p class="text-gray-500 font-bold text-xs md:text-sm">Lade Tankstellen...</p>
                 </div>
             </div>
         </div>
