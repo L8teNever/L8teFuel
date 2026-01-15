@@ -66,6 +66,7 @@ async function initApp() {
         document.getElementById('view-login').classList.add('hidden');
         document.getElementById('view-dashboard').classList.add('view-active');
         document.getElementById('navbar').classList.remove('hidden');
+        loadExploreList();
 
         // Load settings into UI
         if (user.settings) {
